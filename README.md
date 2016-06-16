@@ -31,9 +31,9 @@ geocrawler LC80640052015252LGN00/
 ...
 ```
 
-Same example but using 4 processes extracting the metadata concurrently:
+Same example but using 4 processes extracting the metadata concurrently and writing the output to a file (to be later ingested in a database):
 ```
-geocrawler -c 4 LC80640052015252LGN00/
+geocrawler -c 4 LC80640052015252LGN00/ > out.tsv
 ```
 
 
