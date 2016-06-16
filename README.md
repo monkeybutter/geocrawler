@@ -17,7 +17,7 @@ Extracting metadata for one file:
 geocrawler LC80640052015252LGN00_B1.TIF
 ```
 ```
-{"file_type":"GTiff","datasets":[{"ds_name":"/g/data1/sp9/earthengine-public/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B1.TIF","raster_count":1,"array_type":"Uint16","x_size":9141,"y_size":9161,"proj4":"+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs ","geotransform":[344085,30,0,8.689215e+06,0,-30]}]}
+{"file_type":"GTiff","datasets":[{"ds_name":"/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B1.TIF","raster_count":1,"array_type":"Uint16","x_size":9141,"y_size":9161,"proj4":"+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs ","geotransform":[344085,30,0,8.689215e+06,0,-30]}]}
 ```
 
 Extracting metadata for all the files under a directory:
@@ -25,9 +25,9 @@ Extracting metadata for all the files under a directory:
 geocrawler LC80640052015252LGN00/
 ```
 ```
-/g/data1/sp9/earthengine-public/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B1.TIF	{"file_type":"GTiff","datasets":[{"ds_name":"/g/data1/sp9/earthengine-public/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B1.TIF","raster_count":1,"array_type":"Uint16","x_size":9141,"y_size":9161,"proj4":"+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs ","geotransform":[344085,30,0,8.689215e+06,0,-30]}]}
-/g/data1/sp9/earthengine-public/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B2.TIF	{"file_type":"GTiff","datasets":[{"ds_name":"/g/data1/sp9/earthengine-public/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B2.TIF","raster_count":1,"array_type":"Uint16","x_size":9141,"y_size":9161,"proj4":"+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs ","geotransform":[344085,30,0,8.689215e+06,0,-30]}]}
-/g/data1/sp9/earthengine-public/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B3.TIF	{"file_type":"GTiff","datasets":[{"ds_name":"/g/data1/sp9/earthengine-public/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B3.TIF","raster_count":1,"array_type":"Uint16","x_size":9141,"y_size":9161,"proj4":"+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs ","geotransform":[344085,30,0,8.689215e+06,0,-30]}]}
+/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B1.TIF	{"file_type":"GTiff","datasets":[{"ds_name":"/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B1.TIF","raster_count":1,"array_type":"Uint16","x_size":9141,"y_size":9161,"proj4":"+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs ","geotransform":[344085,30,0,8.689215e+06,0,-30]}]}
+/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B2.TIF	{"file_type":"GTiff","datasets":[{"ds_name":"/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B2.TIF","raster_count":1,"array_type":"Uint16","x_size":9141,"y_size":9161,"proj4":"+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs ","geotransform":[344085,30,0,8.689215e+06,0,-30]}]}
+/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B3.TIF	{"file_type":"GTiff","datasets":[{"ds_name":"/landsat/L8/064/005/LC80640052015252LGN00/LC80640052015252LGN00_B3.TIF","raster_count":1,"array_type":"Uint16","x_size":9141,"y_size":9161,"proj4":"+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs ","geotransform":[344085,30,0,8.689215e+06,0,-30]}]}
 ...
 ```
 
