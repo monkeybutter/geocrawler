@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"flag"
+	"path/filepath"
 	"os"
 	"./geocrawl"
 )
@@ -11,7 +12,7 @@ import (
 
 func main() {
 
-	concLevel := flag.Int("n", 1, "Concurrency level.")
+	concLevel := flag.Int("c", 1, "Concurrency level.")
 
 	flag.Parse()
 
@@ -36,18 +37,18 @@ func main() {
 
 	if fInfo.IsDir() {
 
-		filePaths := extractors.FilesProducerSerial(crawlDirAbs)
+		filePaths := geocrawl.FilesProducerSerial(crawlPath)
 
-		workers := extractors.NewConcLimiter(*concLevel)
+		workers := geocrawl.NewConcLimiter(*concLevel)
 		for path := range filePaths {
 			workers.Increase()
-			go extractors.GDALMetadataPrinter(path, workers)
+			go geocrawl.GDALMetadataPrinter(path, workers)
 		}
 
 		workers.Wait()
 
 	} else {
-		out, err := extractors.GetGDALMetadata(inFileAbs)
+		out, err := geocrawl.GetGDALMetadata(crawlPath)
 
 		if err != nil {
 			fmt.Println(err)

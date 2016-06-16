@@ -9,13 +9,11 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"unsafe"
 )
 
 type GDALDataSet struct {
-	Driver       string    `json:"driver"`
-	VarName      string    `json:"var_name"`
+	DataSetName  string    `json:"ds_name"`
 	RasterCount  int       `json:"raster_count"`
 	Type         string    `json:"array_type"`
 	XSize        int       `json:"x_size"`
@@ -61,16 +59,8 @@ func GetDataSetInfo(dsName *C.char) GDALDataSet {
 	fArr := (*[6]float64)(unsafe.Pointer(&dArr))
 	fSlc := fArr[:]
 
-	fullName := C.GoString(dsName)
-	nameParts := strings.Split(fullName, ":")
-	
-	if len(nameParts) == 3 {
-		return GDALDataSet{nameParts[0], nameParts[2], int(C.GDALGetRasterCount(hSubdataset)), GDALTypes[C.GDALGetRasterDataType(hBand)],
+	return GDALDataSet{C.GoString(dsName), int(C.GDALGetRasterCount(hSubdataset)), GDALTypes[C.GDALGetRasterDataType(hBand)],
 			int(C.GDALGetRasterXSize(hSubdataset)), int(C.GDALGetRasterYSize(hSubdataset)), C.GoString(pszProj4), fSlc}
-	} else {
-		return GDALDataSet{"", "", int(C.GDALGetRasterCount(hSubdataset)), GDALTypes[C.GDALGetRasterDataType(hBand)],
-			int(C.GDALGetRasterXSize(hSubdataset)), int(C.GDALGetRasterYSize(hSubdataset)), C.GoString(pszProj4), fSlc}
-	}
 
 }
 
@@ -116,6 +106,6 @@ func GDALMetadataPrinter(path string, workers *ConcLimiter) {
 
 	json, err := GetGDALMetadata(path)
 	if json != nil && err == nil {
-		fmt.Printf("%s\tgdal\t%s\n", path, string(json))
+		fmt.Printf("%s\t%s\n", path, string(json))
 	}
 }
