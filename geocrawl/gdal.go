@@ -18,8 +18,8 @@ type GDALDataSet struct {
 	Type         string    `json:"array_type"`
 	XSize        int       `json:"x_size"`
 	YSize        int       `json:"y_size"`
-	Proj4        string    `json:"proj4"`
-	Geotransform []float64 `json:"geotransform"`
+	ProjWKT        string    `json:"proj_wkt"`
+	GeoTransform []float64 `json:"geotransform"`
 }
 
 type GDALFile struct {
@@ -50,17 +50,15 @@ func GetDataSetInfo(dsName *C.char) GDALDataSet {
 
 	pszProjection := C.GDALGetProjectionRef(hSubdataset)
 	C.OSRImportFromWkt(hSRS, &pszProjection)
-
-	pszProj4 := C.CString("")
-	C.OSRExportToProj4(hSRS, &pszProj4)
+	
+	pszWkt := C.GDALGetProjectionRef(hSubdataset)
 
 	C.GDALGetGeoTransform(hSubdataset, &dArr[0])
 
 	fArr := (*[6]float64)(unsafe.Pointer(&dArr))
-	fSlc := fArr[:]
 
 	return GDALDataSet{C.GoString(dsName), int(C.GDALGetRasterCount(hSubdataset)), GDALTypes[C.GDALGetRasterDataType(hBand)],
-			int(C.GDALGetRasterXSize(hSubdataset)), int(C.GDALGetRasterYSize(hSubdataset)), C.GoString(pszProj4), fSlc}
+			int(C.GDALGetRasterXSize(hSubdataset)), int(C.GDALGetRasterYSize(hSubdataset)), C.GoString(pszWkt), fArr[:]}
 
 }
 
