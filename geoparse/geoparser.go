@@ -29,9 +29,9 @@ var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<missio
 				  "modis2": `MCD43A4.A[0-9]+.(?P<horizontal>h\d\d)(?P<vertical>v\d\d).(?P<resolution>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,}
 
 var parsers map[string]*regexp.Regexp = map[string]*regexp.Regexp{}
-var timeExtractors map[string]func(map[string] string) time.Time = map[string]func(map[string] string) time.Time{"landsat":landsatTime, "modis1": modisTime, "modis2": modisTime}
+//var timeExtractors map[string]func(map[string] string) time.Time = map[string]func(map[string] string) time.Time{"landsat":landsatTime, "modis1": modisTime, "modis2": modisTime}
 
-func start() {
+func init() {
 	for key, value := range(parserStrings) {
 		parsers[key] = regexp.MustCompile(value)
 	}
@@ -39,7 +39,7 @@ func start() {
 
 func parseName(filePath string) (map[string]string, time.Time) {
 
-	for parserName, r := range(parsers) {
+	for _, r := range(parsers) {
 		_, fileName := filepath.Split(filePath)
 
 		if (r.MatchString(fileName)) {
@@ -52,40 +52,39 @@ func parseName(filePath string) (map[string]string, time.Time) {
 				}
 			}
 
-			return result, timeExtractors[parserName](result)
+			return result, parseTime(result)
 		}	
 	}
 	return nil, time.Time{}
 }
 
-func landsatTime(nameFields map[string]string) time.Time {
-	year, _ := strconv.Atoi(nameFields["year"])
-	julianDay, _ := strconv.Atoi(nameFields["julian_day"])
-	t := time.Date(year, 0, 0, 0, 0, 0, 0, time.UTC)
-	t = t.Add(time.Hour * 24 * time.Duration(julianDay))
+func parseTime(nameFields map[string]string) time.Time {
+	if _, ok := nameFields["year"]; ok {
+		year, _ := strconv.Atoi(nameFields["year"])
+		t := time.Date(year, 0, 0, 0, 0, 0, 0, time.UTC)
+		if _, ok := nameFields["julian_day"]; ok {
+			julianDay, _ := strconv.Atoi(nameFields["julian_day"])
+			t = t.Add(time.Hour * 24 * time.Duration(julianDay))
+		}	
+		if _, ok := nameFields["hour"]; ok {
+			hour, _ := strconv.Atoi(nameFields["hour"])
+			t = t.Add(time.Hour * time.Duration(hour))
+		}	
+		if _, ok := nameFields["minute"]; ok {
+			minute, _ := strconv.Atoi(nameFields["minute"])
+			t = t.Add(time.Minute * time.Duration(minute))
+		}	
+		if _, ok := nameFields["second"]; ok {
+			second, _ := strconv.Atoi(nameFields["second"])
+			t = t.Add(time.Second * time.Duration(second))
+		}	
 
-	return t
-}
-
-func modisTime(nameFields map[string]string) time.Time {
-	year, _ := strconv.Atoi(nameFields["year"])
-	julianDay, _ := strconv.Atoi(nameFields["julian_day"])
-	hour, _ := strconv.Atoi(nameFields["hour"])
-	minute, _ := strconv.Atoi(nameFields["minute"])
-	second, _ := strconv.Atoi(nameFields["second"])
-
-	t := time.Date(year, 0, 0, 0, 0, 0, 0, time.UTC)
-	t = t.Add(time.Hour * 24 * time.Duration(julianDay))
-	t = t.Add(time.Hour * time.Duration(hour))
-	t = t.Add(time.Minute * time.Duration(minute))
-	t = t.Add(time.Second * time.Duration(second))
-
-	return t
-
+		return t
+	}
+	return time.Time{}
 }
 
 func main() {
-	start()
 	s := bufio.NewScanner(os.Stdin)
 	for s.Scan() {
 		parts := strings.Split(s.Text(), "\t")
