@@ -14,9 +14,10 @@ import (
 )
 
 type GeoMetaData struct {
-	TimeStamp      time.Time         `json:"timestamp"`
+	TimeStamps      []string         `json:"timestamps"`
 	FileNameFields map[string]string `json:"filename_fields"`
 	Polygon        json.RawMessage   `json:"polygon"`
+	RasterCount  int       `json:"raster_count"`
 	Type           string            `json:"array_type"`
 	XSize          int               `json:"x_size"`
 	YSize          int               `json:"y_size"`
@@ -26,7 +27,8 @@ type GeoMetaData struct {
 
 var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<mission>\d)(?P<path>\d\d\d)(?P<row>\d\d\d)(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<processing_level>[a-zA-Z0-9]+)_(?P<band>[a-zA-Z0-9]+)`,
 				  "modis1": `M(?P<satellite>[OD|YD])(?P<product>[0-9]+_[A-Z0-9]+).A[0-9]+.[0-9]+.(?P<collection_version>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,
-				  "modis2": `MCD43A4.A[0-9]+.(?P<horizontal>h\d\d)(?P<vertical>v\d\d).(?P<resolution>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,}
+				  "modis2": `MCD43A4.A[0-9]+.(?P<horizontal>h\d\d)(?P<vertical>v\d\d).(?P<resolution>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,
+				  "agdc_landsat1": `LS(?P<mission>\d)_(?P<sensor>[A-Z]+)_(?P<correction>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,}
 
 var parsers map[string]*regexp.Regexp = map[string]*regexp.Regexp{}
 //var timeExtractors map[string]func(map[string] string) time.Time = map[string]func(map[string] string) time.Time{"landsat":landsatTime, "modis1": modisTime, "modis2": modisTime}
@@ -91,6 +93,7 @@ func main() {
 		if len(parts) != 2 {
 			fmt.Printf("Input not recognised: %s\n", s.Text())
 		}
+
 		gdalFile := geolib.GDALFile{}
 		err := json.Unmarshal([]byte(parts[1]), &gdalFile)
 		if err != nil {
@@ -101,19 +104,27 @@ func main() {
 		nameFields, timeStamp := parseName(parts[0])
 
 		for _, ds := range gdalFile.DataSets {
-			poly := geolib.GetPolygon(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
-			polyWGS84 := poly.ReprojectToWGS84()
+			if ds.ProjWKT != "" {
+				poly := geolib.GetPolygon(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
+				polyWGS84 := poly.ReprojectToWGS84()
 
-			fileMetaData := GeoMetaData{TimeStamp: timeStamp, FileNameFields: nameFields, Polygon: json.RawMessage(polyWGS84.ToGeoJSON()),
-				Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, GeoTransform: ds.GeoTransform}
+				var times []string
+				if nc_times, ok := ds.Extras["nc_times"]; ok {
+					times = nc_times
+				} else {
+					times = []string{timeStamp.Format("2006-01-02T15:04:05Z")}
+				}
 
-			out, err := json.Marshal(&fileMetaData)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+				fileMetaData := GeoMetaData{TimeStamps: times, FileNameFields: nameFields, Polygon: json.RawMessage(polyWGS84.ToGeoJSON()),
+					RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, GeoTransform: ds.GeoTransform}
+
+				out, err := json.Marshal(&fileMetaData)
+				if err != nil {
+					fmt.Println(err)
+					os.Exit(1)
+				}
+				fmt.Printf("%s\t%s\n", ds.DataSetName, string(out))
 			}
-			fmt.Printf("%s\t%s\n", parts[0], string(out))
-
 		}
 	}
 }

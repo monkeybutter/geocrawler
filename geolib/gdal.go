@@ -8,7 +8,12 @@ import "C"
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math"
+	"strconv"
+	"strings"
+	"time"
 	"unsafe"
 )
 
@@ -18,8 +23,9 @@ type GDALDataSet struct {
 	Type         string    `json:"array_type"`
 	XSize        int       `json:"x_size"`
 	YSize        int       `json:"y_size"`
-	ProjWKT        string    `json:"proj_wkt"`
+	ProjWKT      string    `json:"proj_wkt"`
 	GeoTransform []float64 `json:"geotransform"`
+	Extras map[string][]string `json:"extra_metadata"`
 }
 
 type GDALFile struct {
@@ -33,33 +39,57 @@ var GDALTypes map[C.GDALDataType]string = map[C.GDALDataType]string{0: "Unkown",
 	12: "TypeCount"}
 
 func GetDataSetInfo(dsName *C.char) GDALDataSet {
-
-	// To hold the SRS
-	hSRS := C.OSRNewSpatialReference(nil)
-
-	// To hold the geotransform
-	dArr := [6]C.double{}
-
+	datasetName := C.GoString(dsName)
 	hSubdataset := C.GDALOpenEx(dsName, C.GDAL_OF_READONLY|C.GDAL_OF_RASTER, nil, nil, nil)
 	if hSubdataset == nil {
 		return GDALDataSet{}
 	}
 	defer C.GDALClose(hSubdataset)
 
-	hBand := C.GDALGetRasterBand(hSubdataset, 1)
+	extras := map[string][]string{}	
+	nc_times, err := GetNCTime(datasetName, hSubdataset)
+	if err == nil {
+		extras["nc_times"] = nc_times
+	}
 
-	pszProjection := C.GDALGetProjectionRef(hSubdataset)
-	C.OSRImportFromWkt(hSRS, &pszProjection)
-	
+	hBand := C.GDALGetRasterBand(hSubdataset, 1)
 	pszWkt := C.GDALGetProjectionRef(hSubdataset)
 
+	// To hold the geotransform
+	dArr := [6]C.double{}
 	C.GDALGetGeoTransform(hSubdataset, &dArr[0])
-
 	fArr := (*[6]float64)(unsafe.Pointer(&dArr))
 
-	return GDALDataSet{C.GoString(dsName), int(C.GDALGetRasterCount(hSubdataset)), GDALTypes[C.GDALGetRasterDataType(hBand)],
-			int(C.GDALGetRasterXSize(hSubdataset)), int(C.GDALGetRasterYSize(hSubdataset)), C.GoString(pszWkt), fArr[:]}
+	return GDALDataSet{datasetName, int(C.GDALGetRasterCount(hSubdataset)), GDALTypes[C.GDALGetRasterDataType(hBand)],
+		int(C.GDALGetRasterXSize(hSubdataset)), int(C.GDALGetRasterYSize(hSubdataset)), C.GoString(pszWkt), fArr[:], extras}
 
+}
+
+func GetNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
+	nameParts := strings.Split(sdsName, ":")
+	times := []string{}
+	
+	if len(nameParts) == 3 {
+		if nameParts[0] == "NETCDF" {
+			metadata := C.GDALGetMetadata(hSubdataset, C.CString(""))
+			value := C.CSLFetchNameValue(metadata, C.CString("NETCDF_DIM_time_VALUES"))
+			if value != nil {
+
+				timeStr := C.GoString(value)
+				for _, tStr := range strings.Split(strings.Trim(timeStr, "{}"), ",") {
+					tF, err := strconv.ParseFloat(tStr, 64)
+					if err != nil {
+						return times, errors.New("Problem parsing dates")
+					}
+					secs, frac := math.Modf(tF)
+					tUnix := time.Unix(int64(secs), int64(1e9*frac))
+					times = append(times, tUnix.Format("2006-01-02T15:04:05Z"))
+				}
+				return times, nil
+			}
+		}
+	}
+	return times, errors.New("Dataset doesn't contain times")
 }
 
 func GetGDALMetadata(path string) ([]byte, error) {
@@ -88,7 +118,7 @@ func GetGDALMetadata(path string) ([]byte, error) {
 		for i := C.int(1); i <= nsubds; i++ {
 			subDSId := C.CString(fmt.Sprintf("SUBDATASET_%d_NAME", i))
 			defer C.free(unsafe.Pointer(subDSId))
-			pszSubdatasetName := C.CPLStrdup(C.CSLFetchNameValue(metadata, subDSId))
+			pszSubdatasetName := C.CSLFetchNameValue(metadata, subDSId)
 			datasets = append(datasets, GetDataSetInfo(pszSubdatasetName))
 		}
 	}
