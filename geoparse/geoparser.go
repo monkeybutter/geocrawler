@@ -107,7 +107,7 @@ func main() {
 			os.Exit(1)
 		}
 		
-		geoFile := geolib.GeoFile{Driver: gdalFile.Driver}
+		geoFile := GeoFile{Driver: gdalFile.Driver}
 
 		nameFields, timeStamp := parseName(parts[0])
 
