@@ -14,6 +14,7 @@ import (
 )
 
 type GeoMetaData struct {
+	DataSetName  string    `json:"ds_name"`
 	TimeStamps      []string         `json:"timestamps"`
 	FileNameFields map[string]string `json:"filename_fields"`
 	Polygon        json.RawMessage   `json:"polygon"`
@@ -23,6 +24,11 @@ type GeoMetaData struct {
 	YSize          int               `json:"y_size"`
 	ProjWKT        string            `json:"proj_wkt"`
 	GeoTransform   []float64         `json:"geotransform"`
+}
+
+type GeoFile struct {
+	Driver   string        `json:"file_type"`
+	DataSets []GeoMetaData `json:"geo_metadata"`
 }
 
 var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<mission>\d)(?P<path>\d\d\d)(?P<row>\d\d\d)(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<processing_level>[a-zA-Z0-9]+)_(?P<band>[a-zA-Z0-9]+)`,
@@ -100,6 +106,8 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		
+		geoFile := geolib.GeoFile{Driver: gdalFile.Driver}
 
 		nameFields, timeStamp := parseName(parts[0])
 
@@ -115,16 +123,16 @@ func main() {
 					times = []string{timeStamp.Format("2006-01-02T15:04:05Z")}
 				}
 
-				fileMetaData := GeoMetaData{TimeStamps: times, FileNameFields: nameFields, Polygon: json.RawMessage(polyWGS84.ToGeoJSON()),
-					RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, GeoTransform: ds.GeoTransform}
+				geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: json.RawMessage(polyWGS84.ToGeoJSON()), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, GeoTransform: ds.GeoTransform})
 
-				out, err := json.Marshal(&fileMetaData)
-				if err != nil {
-					fmt.Println(err)
-					os.Exit(1)
-				}
-				fmt.Printf("%s\t%s\n", ds.DataSetName, string(out))
 			}
 		}
+		out, err := json.Marshal(&geoFile)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		fmt.Printf("%s\tgdal\t%s\n", parts[0], string(out))
+		
 	}
 }
