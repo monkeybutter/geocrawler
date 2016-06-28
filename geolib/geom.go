@@ -7,10 +7,12 @@ package geolib
 import "C"
 
 import (
+	geo "bitbucket.org/monkeyforecaster/geometry"
 	"fmt"
 	"unsafe"
 )
 
+/*
 type Geometry struct {
 	Type string      `json:"type"`
 	Coordinates [][][]float32 `json:"coordinates"`
@@ -21,16 +23,19 @@ type GeoJSON struct {
 	Geometry Geometry `json:"geometry"`
 	Properties map[string]string `json:"properties"`
 }
+*/
 
-type Polygon struct {
+type GDALPolygon struct {
 	Handler C.OGRGeometryH
 }
 
-func (p Polygon) ToGeoJSON() string {
+/*
+func (p GDALPolygon) ToGeoJSON() string {
 	return C.GoString(C.OGR_G_ExportToJson(p.Handler))
 }
+*/
 
-func (p Polygon) ToWKT() string {
+func (p GDALPolygon) ToWKT() string {
 	ppszSrcText := C.CString("")
 	defer C.free(unsafe.Pointer(ppszSrcText))
 
@@ -39,7 +44,7 @@ func (p Polygon) ToWKT() string {
 
 }
 
-func (p Polygon) Proj4() string {
+func (p GDALPolygon) Proj4() string {
 	pszProj4 := C.CString("")
 	defer C.free(unsafe.Pointer(pszProj4))
 
@@ -47,7 +52,7 @@ func (p Polygon) Proj4() string {
 	return C.GoString(pszProj4)
 }
 
-func (p Polygon) ProjWKT() string {
+func (p GDALPolygon) ProjWKT() string {
 
 	pszProjWKT := C.CString("")
 	defer C.free(unsafe.Pointer(pszProjWKT))
@@ -57,7 +62,7 @@ func (p Polygon) ProjWKT() string {
 
 }
 
-func (p Polygon) ReprojectToWGS84() Polygon {
+func (p GDALPolygon) ReprojectToWGS84() GDALPolygon {
 	desSRS := C.OSRNewSpatialReference(C.CString(C.SRS_WKT_WGS84))
 
 	pszWKT := C.CString("")
@@ -66,7 +71,7 @@ func (p Polygon) ReprojectToWGS84() Polygon {
 	C.OSRExportToWkt(desSRS, &pszWKT)
 
 	//make copy
-	newPoly := Polygon{C.OGR_G_Clone(p.Handler)}
+	newPoly := GDALPolygon{C.OGR_G_Clone(p.Handler)}
 
 	// Get error?
 	_ = C.OGR_G_TransformTo(newPoly.Handler, desSRS)
@@ -74,7 +79,19 @@ func (p Polygon) ReprojectToWGS84() Polygon {
 	return newPoly
 }
 
-func GetPolygon(projWKT string, geoTrans []float64, xSize, ySize int) Polygon {
+func (p GDALPolygon) AsPolygon() geo.Polygon {
+	var poly geo.Polygon
+	err := poly.UnmarshalWKT(p.ToWKT())
+
+        poly[0] = append(poly[0], poly[0][0])	
+
+	if err != nil {
+		fmt.Println(err)
+	}
+	return poly
+}
+
+func GetPolygon(projWKT string, geoTrans []float64, xSize, ySize int) GDALPolygon {
 
 	var ulX, ulY, lrX, lrY float64
 	C.GDALApplyGeoTransform((*C.double)(&geoTrans[0]), C.double(0), C.double(0), (*C.double)(&ulX), (*C.double)(&ulY))
@@ -96,7 +113,7 @@ func GetPolygon(projWKT string, geoTrans []float64, xSize, ySize int) Polygon {
 	_ = C.OGR_G_CreateFromWkt(&ppszData, hSRS, &hPt)
 
 	C.OGR_G_AssignSpatialReference(hPt, hSRS)
-	p := Polygon{hPt}
+	p := GDALPolygon{hPt}
 
 	return p
 }
