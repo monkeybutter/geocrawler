@@ -83,7 +83,7 @@ func (p GDALPolygon) AsPolygon() geo.Polygon {
 	var poly geo.Polygon
 	err := poly.UnmarshalWKT(p.ToWKT())
 
-        poly[0] = append(poly[0], poly[0][0])	
+        //poly[0] = append(poly[0], poly[0][0])	
 
 	if err != nil {
 		fmt.Println(err)

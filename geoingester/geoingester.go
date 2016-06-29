@@ -41,14 +41,16 @@ type GeoFile struct {
 	DataSets []GeoMetaData `json:"geo_metadata" bson:"geo_metadata"`
 }
 
-//20160303002000-P1S-ABOM_BRF_B01-PRJ_GEOS141_1000-HIMAWARI8-AHI.nc
+//20160103032000-P1S-ABOM_BRF_B03-PRJ_GEOS141_1000-HIMAWARI8-AHI.nc
+//20160107115000-P1S-ABOM_OBS_B07-PRJ_GEOS141_2000-HIMAWARI8-AHI.nc
+//2016|03|03|00|20|00-P1S-ABOM_BRF_B01-PRJ_GEOS141_1000-HIMAWARI8-AHI.nc
 //SRTM_DEM_9_-49_20000221115400000000.nc
 //LS8_OLI_TIRS_PQ_3577_9_-49_20130417000652240357
 
 var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<mission>\d)(?P<path>\d\d\d)(?P<row>\d\d\d)(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<processing_level>[a-zA-Z0-9]+)_(?P<band>[a-zA-Z0-9]+)`,
 	"modis1":        `M(?P<satellite>[OD|YD])(?P<product>[0-9]+_[A-Z0-9]+).A[0-9]+.[0-9]+.(?P<collection_version>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,
 	"modis2":        `^(?P<product>MCD\d\d[A-Z]\d).A[0-9]+.(?P<horizontal>h\d\d)(?P<vertical>v\d\d).(?P<resolution>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,
-	"himawari8":     `^(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)-P1S-(?P<product>ABOM[A-Z_]+)-PRJ_GEOS141_(?P<resolution>\d+)-HIMAWARI8-AHI`,
+	"himawari8":     `^(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)-P1S-(?P<product>ABOM[0-9A-Z_]+)-PRJ_GEOS141_(?P<resolution>\d+)-HIMAWARI8-AHI`,
 	"agdc_landsat1": `LS(?P<mission>\d)_(?P<sensor>[A-Z]+)_(?P<correction>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,
 	"agdc_landsat2": `LS(?P<mission>\d)_OLI_(?P<sensor>[A-Z]+)_(?P<product>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,
 	"agdc_dem":      `SRTM_(?P<product>[A-Z]+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`}
@@ -126,6 +128,11 @@ func main() {
 		panic(err)
 	}
 	defer session.Close()
+	c := session.DB("test").C("himawari8")
+	//c := session.DB("test").C("mcd1")
+	//c := session.DB("test").C("mcd43a2")
+	//c := session.DB("test").C("mcd43a4")
+	//c := session.DB("test").C("agdcv2")
 
 	s := bufio.NewScanner(os.Stdin)
 	for s.Scan() {
@@ -146,7 +153,7 @@ func main() {
 		nameFields, timeStamp := parseName(parts[0])
 
 		if nameFields != nil {
-
+			
 			for _, ds := range gdalFile.DataSets {
 				if ds.ProjWKT != "" {
 					poly := geolib.GetPolygon(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
@@ -166,15 +173,14 @@ func main() {
 					}
 
 					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Location: Geometry{"Polygon", polyWGS84.AsPolygon()}, RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, GeoTransform: ds.GeoTransform})
-
 				}
 			}
 
-			c := session.DB("test").C("agdcv2")
 			err = c.Insert(&geoFile)
 			if err != nil {
 				log.Fatal(err)
 			}
+
 			/*
 				out, err := json.Marshal(&geoFile)
 				if err != nil {
