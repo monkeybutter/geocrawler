@@ -171,19 +171,18 @@ func main() {
 				}
 			}
 
+			/*
 			err = c.Insert(&geoFile)
 			if err != nil {
 				log.Fatal(err)
 			}
-
-			/*
+			*/
 				out, err := json.Marshal(&geoFile)
 				if err != nil {
 					fmt.Println(err)
 					os.Exit(1)
 				}
 				fmt.Printf("%s\n", string(out))
-			*/
 		} else {
 			log.Printf("%s non parseable", parts[0])
 		}
