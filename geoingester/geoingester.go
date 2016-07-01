@@ -17,16 +17,11 @@ import (
 	"time"
 )
 
-type Geometry struct {
-	Type        string      `json:"type" bson:"type"`
-	Coordinates geo.Polygon `json:"coordinates" bson:"coordinates"`
-}
-
 type GeoMetaData struct {
 	DataSetName    string            `json:"ds_name" bson:"ds_name"`
 	TimeStamps     []time.Time       `json:"timestamps" bson:"timestamps"`
 	FileNameFields map[string]string `json:"filename_fields" bson:"filename_fields"`
-	Location       Geometry          `json:"location" bson:"location"`
+	Location       geo.Geometry      `json:"location" bson:"location"`
 	RasterCount    int               `json:"raster_count" bson:"raster_count"`
 	Type           string            `json:"array_type" bson:"array_type"`
 	XSize          int               `json:"x_size" bson:"x_size"`
@@ -172,7 +167,7 @@ func main() {
 						times = []time.Time{timeStamp}
 					}
 
-					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Location: Geometry{"Polygon", polyWGS84.AsPolygon()}, RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, GeoTransform: ds.GeoTransform})
+					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Location: polyWGS84.AsPolygon(), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, GeoTransform: ds.GeoTransform})
 				}
 			}
 
