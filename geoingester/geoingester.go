@@ -4,10 +4,11 @@ import (
 	"../geolib"
 	geo "bitbucket.org/monkeyforecaster/geometry"
 	"bufio"
+	"flag"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/mgo.v2"
-	_ "gopkg.in/mgo.v2/bson"
+	//"gopkg.in/mgo.v2"
+	//_ "gopkg.in/mgo.v2/bson"
 	"log"
 	"os"
 	"path/filepath"
@@ -31,11 +32,12 @@ type GeoMetaData struct {
 }
 
 type GeoFile struct {
-	FileName string        `json:"filename" bson:"filename"`
+	FileName *string       `json:"filename,omitempty" bson:"filename"`
 	Driver   string        `json:"file_type" bson:"file_type"`
 	DataSets []GeoMetaData `json:"geo_metadata" bson:"geo_metadata"`
 }
 
+//FC.v302.MCD43A4.A2016009.h12v10.005.nc
 //20160103032000-P1S-ABOM_BRF_B03-PRJ_GEOS141_1000-HIMAWARI8-AHI.nc
 //20160107115000-P1S-ABOM_OBS_B07-PRJ_GEOS141_2000-HIMAWARI8-AHI.nc
 //2016|03|03|00|20|00-P1S-ABOM_BRF_B01-PRJ_GEOS141_1000-HIMAWARI8-AHI.nc
@@ -45,6 +47,7 @@ type GeoFile struct {
 var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<mission>\d)(?P<path>\d\d\d)(?P<row>\d\d\d)(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<processing_level>[a-zA-Z0-9]+)_(?P<band>[a-zA-Z0-9]+)`,
 	"modis1":        `M(?P<satellite>[OD|YD])(?P<product>[0-9]+_[A-Z0-9]+).A[0-9]+.[0-9]+.(?P<collection_version>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,
 	"modis2":        `^(?P<product>MCD\d\d[A-Z]\d).A[0-9]+.(?P<horizontal>h\d\d)(?P<vertical>v\d\d).(?P<resolution>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,
+	"modisJP":       `^(?P<product>FC).v302.(?P<root_product>MCD\d\d[A-Z]\d).A(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d).h(?P<horizontal>\d\d)v(?P<vertical>\d\d).(?P<resolution>\d\d\d).`,
 	"himawari8":     `^(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)-P1S-(?P<product>ABOM[0-9A-Z_]+)-PRJ_GEOS141_(?P<resolution>\d+)-HIMAWARI8-AHI`,
 	"agdc_landsat1": `LS(?P<mission>\d)_(?P<sensor>[A-Z]+)_(?P<correction>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,
 	"agdc_landsat2": `LS(?P<mission>\d)_OLI_(?P<sensor>[A-Z]+)_(?P<product>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,
@@ -85,17 +88,16 @@ func parseName(filePath string) (map[string]string, time.Time) {
 func parseTime(nameFields map[string]string) time.Time {
 	if _, ok := nameFields["year"]; ok {
 		year, _ := strconv.Atoi(nameFields["year"])
-		t := time.Date(year, 0, 0, 0, 0, 0, 0, time.UTC)
+		t := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
 		if _, ok := nameFields["julian_day"]; ok {
 			julianDay, _ := strconv.Atoi(nameFields["julian_day"])
-			t = t.Add(time.Hour * 24 * time.Duration(julianDay))
+			t = t.Add(time.Hour * 24 * time.Duration(julianDay-1))
 		}
 		if _, ok := nameFields["month"]; ok {
 			if _, ok := nameFields["day"]; ok {
 				month, _ := strconv.Atoi(nameFields["month"])
 				day, _ := strconv.Atoi(nameFields["day"])
-				t_help := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
-				t = t.Add(time.Hour * 24 * time.Duration(t_help.YearDay()))
+				t = time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
 			}
 		}
 		if _, ok := nameFields["hour"]; ok {
@@ -118,6 +120,10 @@ func parseTime(nameFields map[string]string) time.Time {
 
 func main() {
 
+	compact := flag.Bool("compact", false, "Output compact version.")
+	flag.Parse()
+	
+	/*
 	session, err := mgo.Dial("localhost")
 	if err != nil {
 		panic(err)
@@ -128,6 +134,8 @@ func main() {
 	//c := session.DB("test").C("mcd43a2")
 	//c := session.DB("test").C("mcd43a4")
 	//c := session.DB("test").C("agdcv2")
+	log.Println(c)
+	*/
 
 	s := bufio.NewScanner(os.Stdin)
 	for s.Scan() {
@@ -143,7 +151,10 @@ func main() {
 			os.Exit(1)
 		}
 
-		geoFile := GeoFile{FileName: parts[0], Driver: gdalFile.Driver}
+		geoFile := GeoFile{Driver: gdalFile.Driver}
+		if *compact {	
+			geoFile.FileName = &parts[0]
+		}
 
 		nameFields, timeStamp := parseName(parts[0])
 
@@ -182,7 +193,12 @@ func main() {
 					fmt.Println(err)
 					os.Exit(1)
 				}
+			
+			if *compact {	
 				fmt.Printf("%s\n", string(out))
+			} else {
+				fmt.Printf("%s\t%s\n", parts[0], string(out))
+			}
 		} else {
 			log.Printf("%s non parseable", parts[0])
 		}
