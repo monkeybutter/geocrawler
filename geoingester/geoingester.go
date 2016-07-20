@@ -2,7 +2,7 @@ package main
 
 import (
 	"../geolib"
-	geo "bitbucket.org/monkeyforecaster/geometry"
+	//geo "bitbucket.org/monkeyforecaster/geometry"
 	"bufio"
 	"flag"
 	"encoding/json"
@@ -22,12 +22,14 @@ type GeoMetaData struct {
 	DataSetName    string            `json:"ds_name" bson:"ds_name"`
 	TimeStamps     []time.Time       `json:"timestamps" bson:"timestamps"`
 	FileNameFields map[string]string `json:"filename_fields" bson:"filename_fields"`
-	Location       geo.Geometry      `json:"location" bson:"location"`
+	//Location       geo.Geometry      `json:"location" bson:"location"`
+	Polygon        string            `json:"polygon" bson:"polygon"`
 	RasterCount    int               `json:"raster_count" bson:"raster_count"`
 	Type           string            `json:"array_type" bson:"array_type"`
 	XSize          int               `json:"x_size" bson:"x_size"`
 	YSize          int               `json:"y_size" bson:"y_size"`
 	ProjWKT        string            `json:"proj_wkt" bson:"proj_wkt"`
+	Proj4          string            `json:"proj4" bson:"proj4"`
 	GeoTransform   []float64         `json:"geotransform" bson:"geotransform"`
 }
 
@@ -163,7 +165,7 @@ func main() {
 			for _, ds := range gdalFile.DataSets {
 				if ds.ProjWKT != "" {
 					poly := geolib.GetPolygon(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
-					polyWGS84 := poly.ReprojectToWGS84()
+					//polyWGS84 := poly.ReprojectToWGS84()
 
 					var times []time.Time
 					if nc_times, ok := ds.Extras["nc_times"]; ok {
@@ -178,7 +180,7 @@ func main() {
 						times = []time.Time{timeStamp}
 					}
 
-					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Location: polyWGS84.AsPolygon(), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, GeoTransform: ds.GeoTransform})
+					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: poly.AsPolygon(), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
 				}
 			}
 

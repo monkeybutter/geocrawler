@@ -79,16 +79,15 @@ func (p GDALPolygon) ReprojectToWGS84() GDALPolygon {
 	return newPoly
 }
 
-func (p GDALPolygon) AsPolygon() geo.Polygon {
+func (p GDALPolygon) AsPolygon() string {
 	var poly geo.Polygon
 	err := poly.UnmarshalWKT(p.ToWKT())
-
-        //poly[0] = append(poly[0], poly[0][0])	
 
 	if err != nil {
 		fmt.Println(err)
 	}
-	return poly
+	//return poly
+	return p.ToWKT()
 }
 
 func GetPolygon(projWKT string, geoTrans []float64, xSize, ySize int) GDALPolygon {
