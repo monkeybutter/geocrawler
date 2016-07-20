@@ -73,8 +73,10 @@ func (p GDALPolygon) ReprojectToWGS84() GDALPolygon {
 	//make copy
 	newPoly := GDALPolygon{C.OGR_G_Clone(p.Handler)}
 
-	// Get error?
-	_ = C.OGR_G_TransformTo(newPoly.Handler, desSRS)
+	err := C.OGR_G_TransformTo(newPoly.Handler, desSRS)
+        if err == 6 {
+		return newPoly
+	}
 
 	return newPoly
 }
