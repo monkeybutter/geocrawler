@@ -81,9 +81,10 @@ func GetNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 					if err != nil {
 						return times, errors.New("Problem parsing dates")
 					}
-					secs, frac := math.Modf(tF)
-					tUnix := time.Unix(int64(secs), int64(1e9*frac))
-					times = append(times, tUnix.Format("2006-01-02T15:04:05Z"))
+					secs, _ := math.Modf(tF)
+					t := time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
+					t = t.Add(time.Second * time.Duration(secs))
+					times = append(times, t.Format("2006-01-02T15:04:05Z"))
 				}
 				return times, nil
 			}
