@@ -63,6 +63,10 @@ func (p GDALPolygon) ProjWKT() string {
 }
 
 func (p GDALPolygon) ReprojectToWGS84() GDALPolygon {
+
+}
+
+func (p GDALPolygon) ReprojectToWGS84() GDALPolygon {
 	desSRS := C.OSRNewSpatialReference(C.CString(C.SRS_WKT_WGS84))
 
 	pszWKT := C.CString("")
