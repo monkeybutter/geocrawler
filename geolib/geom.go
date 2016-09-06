@@ -12,6 +12,7 @@ import (
 	"unsafe"
 )
 
+var FullFrameWkt = "POLYGON ((-180 -90, -180 -80, -180 -70, -180 -60, -180 -50, -180 -40, -180 -30, -180 -20, -180 -10, -180 0, -180 10, -180 20, -180 30, -180 40, -180 50, -180 60, -180 70, -180 80, -180 90, 180 90, 180 80, 180 70, 180 60, 180 50, 180 40, 180 30, 180 20, 180 10, 180 0, 180 -10, 180 -20, 180 -30, 180 -40, 180 -50, 180 -60, 180 -70, 180 -80, 180 -90, -180 -90))"
 var AnteMeridianWkt = "POLYGON ((0 90, 0 80, 0 70, 0 60, 0 50, 0 40, 0 30, 0 20, 0 10, 0 0, 0 -10, 0 -20, 0 -30, 0 -40, 0 -50, 0 -60, 0 -70, 0 -80, 0 -90, 180 -80, 180 -70, 180 -60, 180 -50, 180 -40, 180 -30, 180 -20, 180 -10, 180 0,180 10, 180 20, 180 30, 180 40, 180 50, 180 60, 180 70, 180 80, 0 90))"
 var PostMeridianWkt = "POLYGON ((-180 -90, -180 -80, -180 -70, -180 -60, -180 -50, -180 -40, -180 -30, -180 -20, -180 -10, -180 0, -180 10, -180 20, -180 30, -180 40, -180 50, -180 60, -180 70, -180 80, -180 90, 0 80, 0 70, 0 60, 0 50, 0 40, 0 30, 0 20, 0 10, 0 0, 0 -10, 0 -20, 0 -30, 0 -40, 0 -50, 0 -60, 0 -70, 0 -80, -180 -90))"
 var WGS84WKT = `GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]`
@@ -149,24 +150,12 @@ func GetPolygonFromGeoTransform(projWKT string, geoTrans []float64, xSize, ySize
 	return GetPolygon(projWKT, polyWKT)
 }
 
-func SplitDateLine(p GDALPolygon) []string {
-	postMer := GetPolygon(WGS84WKT, PostMeridianWkt)
-	anteMer := GetPolygon(WGS84WKT, AnteMeridianWkt)
+func SplitDateLine(p GDALPolygon) string {
+	fullWorld := GetPolygon(WGS84WKT, FullFrameWkt)
 
-	nativePostMer := postMer.Reproject(p.ProjWKT())
-	nativeAnteMer := anteMer.Reproject(p.ProjWKT())
+	nativeFullWorld := fullWorld.Reproject(p.ProjWKT())
 	
-	result :=  []string{}
-	postInters := nativePostMer.Intersection(p)
-	if postInters.Handler != nil {
-		result = append(result, postInters.ToWKT())	
-	}
-	anteInters := nativeAnteMer.Intersection(p)
-	if anteInters.Handler != nil {
-		result = append(result, anteInters.ToWKT())	
-	}
-
-	return result 
+	return nativePostMer.Intersection(p).ToWKT()
 }
 
 func PolygonFromCorners(ulX, ulY, lrX, lrY float64, projWKT string) GDALPolygon {

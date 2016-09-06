@@ -19,8 +19,8 @@ type GeoMetaData struct {
 	DataSetName    string            `json:"ds_name"`
 	TimeStamps     []time.Time       `json:"timestamps"`
 	FileNameFields map[string]string `json:"filename_fields"`
-	Polygon        []string          `json:"polygon"`
-	PolygonWGS84   []string          `json:"polygon_wgs84"`
+	Polygon        string            `json:"polygon"`
+	PolygonWGS84   string            `json:"polygon_wgs84"`
 	RasterCount    int               `json:"raster_count"`
 	Type           string            `json:"array_type"`
 	XSize          int               `json:"x_size"`
@@ -134,7 +134,7 @@ func main() {
 					poly := geolib.GetPolygonFromGeoTransform(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
 					polySplit := geolib.SplitDateLine(poly)
 					//polyWGS84 := poly.ReprojectToWGS84()
-					polyWGS84 := []string{}
+					var polyWGS84 string
 
 					var times []time.Time
 					if nc_times, ok := ds.Extras["nc_times"]; ok {
