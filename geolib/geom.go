@@ -153,14 +153,15 @@ func SplitDateLine(p GDALPolygon) []string {
 	postMer := GetPolygon(WGS84WKT, PostMeridianWkt)
 	anteMer := GetPolygon(WGS84WKT, AnteMeridianWkt)
 
-	nativePostMer := postMer.Transform(p.ProjWKT())
-	nativeAnteMer := anteMer.Transform(p.ProjWKT())
+	nativePostMer := postMer.Reproject(p.ProjWKT())
+	nativeAnteMer := anteMer.Reproject(p.ProjWKT())
 	
-	postInters := nativePostMer.Intersection(p)
 	result :=  []string{}
+	postInters := nativePostMer.Intersection(p)
 	if postInters.Handler != nil {
 		result = append(result, postInters.ToWKT())	
 	}
+	anteInters := nativeAnteMer.Intersection(p)
 	if anteInters.Handler != nil {
 		result = append(result, anteInters.ToWKT())	
 	}
