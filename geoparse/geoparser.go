@@ -21,6 +21,8 @@ type GeoMetaData struct {
 	FileNameFields map[string]string `json:"filename_fields"`
 	Polygon        string            `json:"polygon"`
 	PolygonWGS84   string            `json:"polygon_wgs84"`
+	PolygonClip    string            `json:"polygon_clipped"`
+	PolygonClipWGS84   string            `json:"polygon_clipped_wgs84"`
 	RasterCount    int               `json:"raster_count"`
 	Type           string            `json:"array_type"`
 	XSize          int               `json:"x_size"`
@@ -132,8 +134,9 @@ func main() {
 			for _, ds := range gdalFile.DataSets {
 				if ds.ProjWKT != "" {
 					poly := geolib.GetPolygonFromGeoTransform(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
-					polySplit := geolib.SplitDateLine(poly)
-					polyWGS84 := polySplit.ReprojectToWGS84()
+					polyWGS84 := poly.ReprojectToWGS84()
+					polyClipped := geolib.ClipDateLine(poly)
+					polyClippedWGS84 := polyClipped.ReprojectToWGS84()
 
 					var times []time.Time
 					if nc_times, ok := ds.Extras["nc_times"]; ok {
@@ -148,7 +151,7 @@ func main() {
 						times = []time.Time{timeStamp}
 					}
 
-					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: polySplit.ToWKT(), PolygonWGS84: polyWGS84.ToWKT(), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
+					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: poly.ToWKT(), PolygonWGS84: polyWGS84.ToWKT(), PolygonClip: polyClipped.ToWKT(), PolygonClipWGS84: polyClippedWGS84.ToWKT(),RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
 				}
 			}
 

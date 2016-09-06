@@ -150,7 +150,7 @@ func GetPolygonFromGeoTransform(projWKT string, geoTrans []float64, xSize, ySize
 	return GetPolygon(projWKT, polyWKT)
 }
 
-func SplitDateLine(p GDALPolygon) GDALPolygon {
+func ClipDateLine(p GDALPolygon) GDALPolygon {
 	fullWorld := GetPolygon(WGS84WKT, FullFrameWkt)
 
 	nativeFullWorld := fullWorld.Reproject(p.ProjWKT())
