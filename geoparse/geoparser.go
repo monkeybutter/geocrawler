@@ -106,6 +106,7 @@ func parseTime(nameFields map[string]string) time.Time {
 		return t
 	}
 	return time.Time{}
+}
 
 func main() {
 
@@ -130,7 +131,8 @@ func main() {
 
 			for _, ds := range gdalFile.DataSets {
 				if ds.ProjWKT != "" {
-					poly := geolib.SplitDateLine(geolib.GetPolygon(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize))
+					poly := geolib.GetPolygon(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
+					polySplit := geolib.SplitDateLine(poly)
 					//polyWGS84 := poly.ReprojectToWGS84()
 					polyWGS84 := []string{}
 
@@ -147,7 +149,7 @@ func main() {
 						times = []time.Time{timeStamp}
 					}
 
-					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: poly, PolygonWGS84: polyWGS84, RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
+					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: polySplit, PolygonWGS84: polyWGS84, RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
 				}
 			}
 

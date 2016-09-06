@@ -121,7 +121,7 @@ func GetPolygon(projWKT string, geoTrans []float64, xSize, ySize int) GDALPolygo
 	return p
 }
 
-func SplitDateLine(p GDALPolygon) []GDALPolygon {
+func SplitDateLine(p GDALPolygon) []string {
 	return []string{p.ToWKT()}
 }
 
