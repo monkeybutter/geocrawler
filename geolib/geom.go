@@ -150,12 +150,12 @@ func GetPolygonFromGeoTransform(projWKT string, geoTrans []float64, xSize, ySize
 	return GetPolygon(projWKT, polyWKT)
 }
 
-func SplitDateLine(p GDALPolygon) string {
+func SplitDateLine(p GDALPolygon) GDALPolygon {
 	fullWorld := GetPolygon(WGS84WKT, FullFrameWkt)
 
 	nativeFullWorld := fullWorld.Reproject(p.ProjWKT())
 	
-	return nativeFullWorld.Intersection(p).ToWKT()
+	return nativeFullWorld.Intersection(p)
 }
 
 func PolygonFromCorners(ulX, ulY, lrX, lrY float64, projWKT string) GDALPolygon {

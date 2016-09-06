@@ -133,8 +133,7 @@ func main() {
 				if ds.ProjWKT != "" {
 					poly := geolib.GetPolygonFromGeoTransform(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
 					polySplit := geolib.SplitDateLine(poly)
-					//polyWGS84 := poly.ReprojectToWGS84()
-					var polyWGS84 string
+					polyWGS84 := polySplit.ReprojectToWGS84()
 
 					var times []time.Time
 					if nc_times, ok := ds.Extras["nc_times"]; ok {
@@ -149,7 +148,7 @@ func main() {
 						times = []time.Time{timeStamp}
 					}
 
-					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: polySplit, PolygonWGS84: polyWGS84, RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
+					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: polySplit.ToWKT(), PolygonWGS84: polyWGS84.ToWKT(), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
 				}
 			}
 
