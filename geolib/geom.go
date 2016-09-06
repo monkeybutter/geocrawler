@@ -155,7 +155,7 @@ func SplitDateLine(p GDALPolygon) string {
 
 	nativeFullWorld := fullWorld.Reproject(p.ProjWKT())
 	
-	return nativePostMer.Intersection(p).ToWKT()
+	return nativeFullWorld.Intersection(p).ToWKT()
 }
 
 func PolygonFromCorners(ulX, ulY, lrX, lrY float64, projWKT string) GDALPolygon {
