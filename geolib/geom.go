@@ -53,17 +53,11 @@ func (p GDALPolygon) Proj4() string {
 }
 
 func (p GDALPolygon) ProjWKT() string {
-
 	pszProjWKT := C.CString("")
 	defer C.free(unsafe.Pointer(pszProjWKT))
 
 	C.OSRExportToWkt(C.OGR_G_GetSpatialReference(p.Handler), &pszProjWKT)
 	return C.GoString(pszProjWKT)
-
-}
-
-func (p GDALPolygon) ReprojectToWGS84() GDALPolygon {
-
 }
 
 func (p GDALPolygon) ReprojectToWGS84() GDALPolygon {
@@ -78,12 +72,12 @@ func (p GDALPolygon) ReprojectToWGS84() GDALPolygon {
 	newPoly := GDALPolygon{C.OGR_G_Clone(p.Handler)}
 
 	err := C.OGR_G_TransformTo(newPoly.Handler, desSRS)
-        if err == 6 {
-                ringCoords := p.AsArray()
+	if err == 6 {
+		ringCoords := p.AsArray()
 		poly := PolygonFromCorners(ringCoords[0][0]-(ringCoords[0][0]*.01), 1, ringCoords[3][0]-(ringCoords[3][0]*.01), -1, p.ProjWKT())
- 		polyWGS84 := poly.ReprojectToWGS84()
-                ringWGS84Coords := polyWGS84.AsArray()
-                newPoly = PolygonFromCorners(ringWGS84Coords[0][0], 90, ringWGS84Coords[3][0], -90, polyWGS84.ProjWKT())
+		polyWGS84 := poly.ReprojectToWGS84()
+		ringWGS84Coords := polyWGS84.AsArray()
+		newPoly = PolygonFromCorners(ringWGS84Coords[0][0], 90, ringWGS84Coords[3][0], -90, polyWGS84.ProjWKT())
 	}
 
 	return newPoly
@@ -96,7 +90,7 @@ func (p GDALPolygon) AsArray() [][]float64 {
 	if err != nil {
 		fmt.Println(err)
 	}
-        
+
 	return poly.AsArray()[0]
 }
 
@@ -127,11 +121,15 @@ func GetPolygon(projWKT string, geoTrans []float64, xSize, ySize int) GDALPolygo
 	return p
 }
 
+func SplitDateLine(p GDALPolygon) []GDALPolygon {
+	return []string{p.ToWKT()}
+}
+
 func PolygonFromCorners(ulX, ulY, lrX, lrY float64, projWKT string) GDALPolygon {
 
 	polyWKT := fmt.Sprintf("POLYGON ((%f %f,%f %f,%f %f,%f %f,%f %f))", ulX, ulY, ulX, lrY, lrX, lrY, lrX, ulY, ulX, ulY)
 
-        ppszData := C.CString(polyWKT)
+	ppszData := C.CString(polyWKT)
 	defer C.free(unsafe.Pointer(ppszData))
 
 	hSRS := C.OSRNewSpatialReference(nil)
@@ -139,7 +137,7 @@ func PolygonFromCorners(ulX, ulY, lrX, lrY float64, projWKT string) GDALPolygon 
 	defer C.free(unsafe.Pointer(cProjWKT))
 
 	C.OSRImportFromWkt(hSRS, &cProjWKT)
-	
+
 	var hPt C.OGRGeometryH
 
 	_ = C.OGR_G_CreateFromWkt(&ppszData, hSRS, &hPt)
@@ -149,4 +147,3 @@ func PolygonFromCorners(ulX, ulY, lrX, lrY float64, projWKT string) GDALPolygon 
 
 	return p
 }
-
