@@ -131,7 +131,7 @@ func main() {
 
 			for _, ds := range gdalFile.DataSets {
 				if ds.ProjWKT != "" {
-					poly := geolib.GetPolygon(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
+					poly := geolib.GetPolygonFromGeoTransform(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
 					polySplit := geolib.SplitDateLine(poly)
 					//polyWGS84 := poly.ReprojectToWGS84()
 					polyWGS84 := []string{}

@@ -139,7 +139,7 @@ func GetPolygon(projWKT, polyWKT string) GDALPolygon {
 	return GDALPolygon{hPt}
 }
 
-func GetPolygonFromGeotransform(projWKT string, geoTrans []float64, xSize, ySize int) GDALPolygon {
+func GetPolygonFromGeoTransform(projWKT string, geoTrans []float64, xSize, ySize int) GDALPolygon {
 	var ulX, ulY, lrX, lrY float64
 	C.GDALApplyGeoTransform((*C.double)(&geoTrans[0]), C.double(0), C.double(0), (*C.double)(&ulX), (*C.double)(&ulY))
 	C.GDALApplyGeoTransform((*C.double)(&geoTrans[0]), C.double(xSize), C.double(ySize), (*C.double)(&lrX), (*C.double)(&lrY))
