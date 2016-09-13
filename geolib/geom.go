@@ -9,8 +9,35 @@ import "C"
 import (
 	geo "bitbucket.org/monkeyforecaster/geometry"
 	"fmt"
+	"bytes"
+	"text/template"
 	"unsafe"
 )
+
+func GenerateBoundingWKT(minLat, maxLat, step float64) (string, error) {
+	buf := new(bytes.Buffer)
+	
+	lats := []float64{}
+	for lat := minLat; lat <= maxLat; lat=lat+step {
+		lats = append(lats, lat)
+	}
+	
+	revLats := make([]float64, len(lats))
+	for i, item := range lats {
+		revLats[len(lats)-(i+1)] = item
+	}
+	
+	tmpl, _ := template.New("test").Parse("POLYGON (({{ range $index, $value := . }}{{if $index}}, {{end}}-180 {{ $value }}{{end}}, ")
+	tmpl2, _ := template.New("test").Parse("{{ range $index, $value := . }}{{if $index}}, {{end}}180 {{ $value }}{{end}}, -180 -90))")
+	
+	err := tmpl.Execute(buf, lats)
+	if err != nil { return "", err}
+	
+	err = tmpl2.Execute(buf, revLats)
+	if err != nil { return "", err}
+	
+	return buf.String(), nil
+}
 
 var FullFrameWkt = "POLYGON ((-180 -90, -180 -80, -180 -70, -180 -60, -180 -50, -180 -40, -180 -30, -180 -20, -180 -10, -180 0, -180 10, -180 20, -180 30, -180 40, -180 50, -180 60, -180 70, -180 80, -180 90, 180 90, 180 80, 180 70, 180 60, 180 50, 180 40, 180 30, 180 20, 180 10, 180 0, 180 -10, 180 -20, 180 -30, 180 -40, 180 -50, 180 -60, 180 -70, 180 -80, 180 -90, -180 -90))"
 var AnteMeridianWkt = "POLYGON ((0 90, 0 80, 0 70, 0 60, 0 50, 0 40, 0 30, 0 20, 0 10, 0 0, 0 -10, 0 -20, 0 -30, 0 -40, 0 -50, 0 -60, 0 -70, 0 -80, 0 -90, 180 -80, 180 -70, 180 -60, 180 -50, 180 -40, 180 -30, 180 -20, 180 -10, 180 0,180 10, 180 20, 180 30, 180 40, 180 50, 180 60, 180 70, 180 80, 0 90))"
@@ -151,8 +178,8 @@ func GetPolygonFromGeoTransform(projWKT string, geoTrans []float64, xSize, ySize
 }
 
 func ClipDateLine(p GDALPolygon) GDALPolygon {
-	fullWorld := GetPolygon(WGS84WKT, FullFrameWkt)
-
+	fullFrameWkt, _ := GenerateBoundingWKT(-90, 90, 1)
+	fullWorld := GetPolygon(WGS84WKT, fullFrameWkt)
 	nativeFullWorld := fullWorld.Reproject(p.ProjWKT())
 	
 	return nativeFullWorld.Intersection(p)
