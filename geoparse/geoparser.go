@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -20,16 +22,16 @@ type GeoMetaData struct {
 	TimeStamps     []time.Time       `json:"timestamps"`
 	FileNameFields map[string]string `json:"filename_fields"`
 	Polygon        string            `json:"polygon"`
-	PolygonWGS84   string            `json:"polygon_wgs84"`
-	PolygonClip    string            `json:"polygon_clipped"`
-	PolygonClipWGS84   string            `json:"polygon_clipped_wgs84"`
-	RasterCount    int               `json:"raster_count"`
-	Type           string            `json:"array_type"`
-	XSize          int               `json:"x_size"`
-	YSize          int               `json:"y_size"`
-	ProjWKT        string            `json:"proj_wkt"`
-	Proj4          string            `json:"proj4"`
-	GeoTransform   []float64         `json:"geotransform"`
+	//PolygonWGS84   string            `json:"polygon_wgs84"`
+	//PolygonClip    string            `json:"polygon_clipped"`
+	//PolygonClipWGS84   string            `json:"polygon_clipped_wgs84"`
+	RasterCount  int       `json:"raster_count"`
+	Type         string    `json:"array_type"`
+	XSize        int       `json:"x_size"`
+	YSize        int       `json:"y_size"`
+	ProjWKT      string    `json:"proj_wkt"`
+	Proj4        string    `json:"proj4"`
+	GeoTransform []float64 `json:"geotransform"`
 }
 
 type GeoFile struct {
@@ -42,7 +44,7 @@ var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<missio
 	"modis1":        `^(?P<product>MCD\d\d[A-Z]\d).A(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d).(?P<horizontal>h\d\d)(?P<vertical>v\d\d).(?P<resolution>\d\d\d).[0-9]+`,
 	"modis2":        `M(?P<satellite>[OD|YD])(?P<product>[0-9]+_[A-Z0-9]+).A[0-9]+.[0-9]+.(?P<collection_version>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,
 	"modisJP":       `^(?P<product>FC).v302.(?P<root_product>MCD\d\d[A-Z]\d).h(?P<horizontal>\d\d)v(?P<vertical>\d\d).(?P<year>\d\d\d\d).(?P<resolution>\d\d\d).`,
-	"modisJP_LR":       `^(?P<product>FC_LR).v302.(?P<root_product>MCD\d\d[A-Z]\d).h(?P<horizontal>\d\d)v(?P<vertical>\d\d).(?P<year>\d\d\d\d).(?P<resolution>\d\d\d).`,
+	"modisJP_LR":    `^(?P<product>FC_LR).v302.(?P<root_product>MCD\d\d[A-Z]\d).h(?P<horizontal>\d\d)v(?P<vertical>\d\d).(?P<year>\d\d\d\d).(?P<resolution>\d\d\d).`,
 	"himawari8":     `^(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)-P1S-(?P<product>ABOM[0-9A-Z_]+)-PRJ_GEOS141_(?P<resolution>\d+)-HIMAWARI8-AHI`,
 	"agdc_landsat1": `LS(?P<mission>\d)_(?P<sensor>[A-Z]+)_(?P<correction>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,
 	"agdc_landsat2": `LS(?P<mission>\d)_OLI_(?P<sensor>[A-Z]+)_(?P<product>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,
@@ -111,6 +113,49 @@ func parseTime(nameFields map[string]string) time.Time {
 	return time.Time{}
 }
 
+type POSIXDescriptor struct {
+	GID   uint32 `json:"gid"`
+	Group string `json:"group"`
+	UID   uint32 `json:"uid"`
+	User  string `json:"user"`
+	Size  int64  `json:"size"`
+	Mode  string `json:"mode"`
+	Type  string `json:"type"`
+	INode uint64 `json:"inode"`
+	MTime int64  `json:"mtime"`
+	ATime int64  `json:"atime"`
+	CTime int64  `json:"ctime"`
+}
+
+func ExtractPOSIX(path string) string {
+	finfo, err := os.Stat(path)
+	if err != nil {
+		// no such file or dir
+		return ""
+	}
+	var rec syscall.Stat_t
+	err = syscall.Lstat(path, &rec)
+	if err != nil {
+		// no such file or dir
+		return ""
+	}
+	group, err := user.LookupGroupId(fmt.Sprintf("%d", rec.Gid))
+	if err != nil {
+		// no such file or dir
+		return ""
+	}
+	user, err := user.LookupId(fmt.Sprintf("%d", rec.Uid))
+	if err != nil {
+		// no such file or dir
+		return ""
+	}
+
+	descr := POSIXDescriptor{Group: group.Name, User: user.Name, INode: rec.Ino, MTime: rec.Mtim.Sec, CTime: rec.Ctim.Sec, ATime: rec.Atim.Sec, Size: finfo.Size(), Mode: finfo.Mode().String(), Type: "file", UID: rec.Uid, GID: rec.Gid}
+
+	out, _ := json.Marshal(&descr)
+	return fmt.Sprintf("%s\tposix\t%s", path, string(out))
+}
+
 func main() {
 
 	s := bufio.NewScanner(os.Stdin)
@@ -119,6 +164,8 @@ func main() {
 		if len(parts) != 2 {
 			fmt.Printf("Input not recognised: %s\n", s.Text())
 		}
+
+		fmt.Println(ExtractPOSIX(parts[0]))
 
 		gdalFile := geolib.GDALFile{}
 		err := json.Unmarshal([]byte(parts[1]), &gdalFile)
@@ -135,9 +182,9 @@ func main() {
 			for _, ds := range gdalFile.DataSets {
 				if ds.ProjWKT != "" {
 					poly := geolib.GetPolygonFromGeoTransform(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
-					polyWGS84 := poly.ReprojectToWGS84()
-					polyClipped := geolib.ClipDateLine(poly)
-					polyClippedWGS84 := polyClipped.ReprojectToWGS84()
+					//polyWGS84 := poly.ReprojectToWGS84()
+					//polyClipped := geolib.ClipDateLine(poly)
+					//polyClippedWGS84 := polyClipped.ReprojectToWGS84()
 
 					var times []time.Time
 					if nc_times, ok := ds.Extras["nc_times"]; ok {
@@ -152,7 +199,8 @@ func main() {
 						times = []time.Time{timeStamp}
 					}
 
-					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: poly.ToWKT(), PolygonWGS84: polyWGS84.ToWKT(), PolygonClip: polyClipped.ToWKT(), PolygonClipWGS84: polyClippedWGS84.ToWKT(),RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
+					geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: poly.ToWKT(), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
+					//geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: poly.ToWKT(), PolygonWGS84: polyWGS84.ToWKT(), PolygonClip: polyClipped.ToWKT(), PolygonClipWGS84: polyClippedWGS84.ToWKT(),RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
 				}
 			}
 

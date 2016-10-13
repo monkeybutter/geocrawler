@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"flag"
+	"regexp"
 	"path/filepath"
 	"os"
 	"../geolib"
@@ -11,6 +12,7 @@ import (
 func main() {
 
 	concLevel := flag.Int("c", 1, "Concurrency level.")
+	re := flag.String("re", ".*", "Regular expression to match specific files when crawling.")
 
 	flag.Parse()
 
@@ -18,6 +20,9 @@ func main() {
     		flag.Usage()
     		os.Exit(1)
 	}
+
+	contains := regexp.MustCompile(*re)
+
 
 	crawlPath, err := filepath.Abs(flag.Arg(0))
 
@@ -30,7 +35,7 @@ func main() {
 
 	if err != nil {
 		fmt.Println("Error:", err)
-    	os.Exit(1)
+    		os.Exit(1)
 	}
 
 	if fInfo.IsDir() {
@@ -39,8 +44,10 @@ func main() {
 
 		workers := geolib.NewConcLimiter(*concLevel)
 		for path := range filePaths {
-			workers.Increase()
-			go geolib.GDALMetadataPrinter(path, workers)
+			if contains.MatchString(path) {
+				workers.Increase()
+				go geolib.GDALMetadataPrinter(path, workers)
+			}
 		}
 
 		workers.Wait()
