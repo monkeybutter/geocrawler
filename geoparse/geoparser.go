@@ -150,7 +150,7 @@ func ExtractPOSIX(path string) string {
 		return ""
 	}
 
-	descr := POSIXDescriptor{Group: group.Name, User: user.Name, INode: rec.Ino, MTime: rec.Mtim.Sec, CTime: rec.Ctim.Sec, ATime: rec.Atim.Sec, Size: finfo.Size(), Mode: finfo.Mode().String(), Type: "file", UID: rec.Uid, GID: rec.Gid}
+	descr := POSIXDescriptor{Group: group.Name, User: user.Username, INode: rec.Ino, MTime: rec.Mtim.Sec, CTime: rec.Ctim.Sec, ATime: rec.Atim.Sec, Size: finfo.Size(), Mode: finfo.Mode().String(), Type: "file", UID: rec.Uid, GID: rec.Gid}
 
 	out, _ := json.Marshal(&descr)
 	return fmt.Sprintf("%s\tposix\t%s", path, string(out))
