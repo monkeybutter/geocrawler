@@ -22,16 +22,13 @@ type GeoMetaData struct {
 	TimeStamps     []time.Time       `json:"timestamps"`
 	FileNameFields map[string]string `json:"filename_fields"`
 	Polygon        string            `json:"polygon"`
-	//PolygonWGS84   string            `json:"polygon_wgs84"`
-	//PolygonClip    string            `json:"polygon_clipped"`
-	//PolygonClipWGS84   string            `json:"polygon_clipped_wgs84"`
-	RasterCount  int       `json:"raster_count"`
-	Type         string    `json:"array_type"`
-	XSize        int       `json:"x_size"`
-	YSize        int       `json:"y_size"`
-	ProjWKT      string    `json:"proj_wkt"`
-	Proj4        string    `json:"proj4"`
-	GeoTransform []float64 `json:"geotransform"`
+	RasterCount    int               `json:"raster_count"`
+	Type           string            `json:"array_type"`
+	XSize          int               `json:"x_size"`
+	YSize          int               `json:"y_size"`
+	ProjWKT        string            `json:"proj_wkt"`
+	Proj4          string            `json:"proj4"`
+	GeoTransform   []float64         `json:"geotransform"`
 }
 
 type GeoFile struct {
@@ -47,6 +44,8 @@ var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<missio
 	"modisJP_LR":    `^(?P<product>FC_LR).v302.(?P<root_product>MCD\d\d[A-Z]\d).h(?P<horizontal>\d\d)v(?P<vertical>\d\d).(?P<year>\d\d\d\d).(?P<resolution>\d\d\d).`,
 	"himawari8":     `^(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)-P1S-(?P<product>ABOM[0-9A-Z_]+)-PRJ_GEOS141_(?P<resolution>\d+)-HIMAWARI8-AHI`,
 	"agdc_landsat1": `LS(?P<mission>\d)_(?P<sensor>[A-Z]+)_(?P<correction>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,
+	"elevation_ga":  `^Elevation_1secSRTM_DEMs_v1.0_DEM-S_Tiles_e(?P<longitude>\d+)s(?P<latitude>\d+)dems.nc$`,
+	"chirps2.0":     `^chirps-v2.0.(?P<year>\d\d\d\d).dekads.nc$`,
 	"agdc_landsat2": `LS(?P<mission>\d)_OLI_(?P<sensor>[A-Z]+)_(?P<product>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,
 	"agdc_dem":      `SRTM_(?P<product>[A-Z]+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`}
 
