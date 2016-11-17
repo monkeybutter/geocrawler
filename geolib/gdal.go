@@ -17,6 +17,9 @@ import (
 	"unsafe"
 )
 
+const WGS84WKT = `GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9108"]],AUTHORITY["EPSG","4326"]]","proj4":"+proj=longlat +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +no_defs `
+var CWGS84WKT *C.char = C.CString(`GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9108"]],AUTHORITY["EPSG","4326"]]","proj4":"+proj=longlat +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +no_defs `)
+
 type GDALDataSet struct {
 	DataSetName  string    `json:"ds_name"`
 	RasterCount  int       `json:"raster_count"`
@@ -54,6 +57,9 @@ func GetDataSetInfo(dsName *C.char) GDALDataSet {
 
 	hBand := C.GDALGetRasterBand(hSubdataset, 1)
 	pszWkt := C.GDALGetProjectionRef(hSubdataset)
+	if C.GoString(pszWkt) == "" {
+		pszWkt = CWGS84WKT
+	}
 
 	// To hold the geotransform
 	dArr := [6]C.double{}
