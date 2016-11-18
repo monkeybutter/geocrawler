@@ -17,18 +17,22 @@ import (
 	"unsafe"
 )
 
+var dateFormats []string = []string{"2006-01-02 15:04:05.0", "2006-1-2 15:4:5"}
+var durationUnits map[string]time.Duration = map[string]time.Duration{"seconds": time.Second, "days": time.Hour * 24}
+
 const WGS84WKT = `GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9108"]],AUTHORITY["EPSG","4326"]]","proj4":"+proj=longlat +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +no_defs `
+
 var CWGS84WKT *C.char = C.CString(`GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9108"]],AUTHORITY["EPSG","4326"]]","proj4":"+proj=longlat +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +no_defs `)
 
 type GDALDataSet struct {
-	DataSetName  string    `json:"ds_name"`
-	RasterCount  int       `json:"raster_count"`
-	Type         string    `json:"array_type"`
-	XSize        int       `json:"x_size"`
-	YSize        int       `json:"y_size"`
-	ProjWKT      string    `json:"proj_wkt"`
-	GeoTransform []float64 `json:"geotransform"`
-	Extras map[string][]string `json:"extra_metadata"`
+	DataSetName  string              `json:"ds_name"`
+	RasterCount  int                 `json:"raster_count"`
+	Type         string              `json:"array_type"`
+	XSize        int                 `json:"x_size"`
+	YSize        int                 `json:"y_size"`
+	ProjWKT      string              `json:"proj_wkt"`
+	GeoTransform []float64           `json:"geotransform"`
+	Extras       map[string][]string `json:"extra_metadata"`
 }
 
 type GDALFile struct {
@@ -49,8 +53,8 @@ func GetDataSetInfo(dsName *C.char) GDALDataSet {
 	}
 	defer C.GDALClose(hSubdataset)
 
-	extras := map[string][]string{}	
-	nc_times, err := GetNCTime(datasetName, hSubdataset)
+	extras := map[string][]string{}
+	nc_times, err := GetNCTime2(datasetName, hSubdataset)
 	if err == nil {
 		extras["nc_times"] = nc_times
 	}
@@ -71,13 +75,60 @@ func GetDataSetInfo(dsName *C.char) GDALDataSet {
 
 }
 
+func GoStrings(argc C.int, argv **C.char) []string {
+
+	length := int(argc)
+	tmpslice := (*[1 << 30]*C.char)(unsafe.Pointer(argv))[:length:length]
+	gostrings := make([]string, length)
+	for i, s := range tmpslice {
+		gostrings[i] = C.GoString(s)
+	}
+	return gostrings
+}
+
+func getDate(inDate string) time.Time {
+	for _, dateFormat := range dateFormats {
+		if t, err := time.Parse(dateFormat, inDate); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+func GetNCTime2(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
+	times := []string{}
+
+	metadata := C.GDALGetMetadata(hSubdataset, nil)
+	timeUnits := C.GoString(C.CSLFetchNameValue(metadata, C.CString("time#units")))
+	timeUnitsSlice := strings.Split(timeUnits, "since")
+	stepUnit := durationUnits[strings.Trim(timeUnitsSlice[0], " ")]
+	startDate := getDate(strings.Trim(timeUnitsSlice[1], " "))
+
+	value := C.CSLFetchNameValue(metadata, C.CString("NETCDF_DIM_time_VALUES"))
+	if value != nil {
+
+		timeStr := C.GoString(value)
+		for _, tStr := range strings.Split(strings.Trim(timeStr, "{}"), ",") {
+			tF, err := strconv.ParseFloat(tStr, 64)
+			if err != nil {
+				return times, errors.New("Problem parsing dates")
+			}
+			secs, _ := math.Modf(tF)
+			t := startDate.Add(time.Duration(secs) * stepUnit)
+			times = append(times, t.Format("2006-01-02T15:04:05Z"))
+		}
+		return times, nil
+	}
+	return times, errors.New("Dataset doesn't contain times")
+}
+
 func GetNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 	nameParts := strings.Split(sdsName, ":")
 	times := []string{}
-	
+
 	if len(nameParts) == 3 {
 		if nameParts[0] == "NETCDF" {
-			metadata := C.GDALGetMetadata(hSubdataset, C.CString(""))
+			metadata := C.GDALGetMetadata(hSubdataset, nil)
 			value := C.CSLFetchNameValue(metadata, C.CString("NETCDF_DIM_time_VALUES"))
 			if value != nil {
 
