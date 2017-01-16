@@ -45,7 +45,7 @@ var GDALTypes map[C.GDALDataType]string = map[C.GDALDataType]string{0: "Unkown",
 	8: "CInt16", 9: "CInt32", 10: "CFloat32", 11: "CFloat64",
 	12: "TypeCount"}
 
-func GetDataSetInfo(dsName *C.char) GDALDataSet {
+func GetDataSetInfo(dsName *C.char, driverName string) GDALDataSet {
 	datasetName := C.GoString(dsName)
 	hSubdataset := C.GDALOpenEx(dsName, C.GDAL_OF_READONLY|C.GDAL_OF_RASTER, nil, nil, nil)
 	if hSubdataset == nil {
@@ -54,9 +54,11 @@ func GetDataSetInfo(dsName *C.char) GDALDataSet {
 	defer C.GDALClose(hSubdataset)
 
 	extras := map[string][]string{}
-	nc_times, err := GetNCTime2(datasetName, hSubdataset)
-	if err == nil {
-		extras["nc_times"] = nc_times
+	if driverName == "netCDF" {
+		nc_times, err := GetNCTime2(datasetName, hSubdataset)
+		if err == nil {
+			extras["nc_times"] = nc_times
+		}
 	}
 
 	hBand := C.GDALGetRasterBand(hSubdataset, 1)
@@ -163,13 +165,16 @@ func GetGDALMetadata(path string) ([]byte, error) {
 	}
 	defer C.GDALClose(hDataset)
 
+	hDriver := C.GDALGetDatasetDriver(hDataset)
+	shortName := C.GoString(C.GDALGetDriverShortName(hDriver))
+
 	metadata := C.GDALGetMetadata(hDataset, C.CString("SUBDATASETS"))
 	nsubds := C.CSLCount(metadata) / C.int(2)
 
 	var datasets = []GDALDataSet{}
 	if nsubds == C.int(0) {
 		// There are no subdatasets
-		datasets = append(datasets, GetDataSetInfo(cPath))
+		datasets = append(datasets, GetDataSetInfo(cPath, shortName))
 
 	} else {
 		// There are subdatasets
@@ -177,14 +182,11 @@ func GetGDALMetadata(path string) ([]byte, error) {
 			subDSId := C.CString(fmt.Sprintf("SUBDATASET_%d_NAME", i))
 			defer C.free(unsafe.Pointer(subDSId))
 			pszSubdatasetName := C.CSLFetchNameValue(metadata, subDSId)
-			datasets = append(datasets, GetDataSetInfo(pszSubdatasetName))
+			datasets = append(datasets, GetDataSetInfo(pszSubdatasetName, shortName))
 		}
 	}
 
-	hDriver := C.GDALGetDatasetDriver(hDataset)
-	shortName := C.GDALGetDriverShortName(hDriver)
-
-	return json.Marshal(GDALFile{C.GoString(shortName), datasets})
+	return json.Marshal(GDALFile{shortName, datasets})
 }
 
 func GDALMetadataPrinter(path string, workers *ConcLimiter) {
