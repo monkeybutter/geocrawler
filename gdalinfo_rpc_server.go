@@ -1,4 +1,4 @@
-package processor
+package main
 
 // #include "gdal.h"
 // #include "ogr_srs_api.h" /* for SRS calls */
@@ -7,113 +7,81 @@ package processor
 import "C"
 
 import (
+	"./rpcflow"
+	"flag"
 	"fmt"
+	//"log"
 	"math"
+	"net"
+	"net/rpc"
 	"strconv"
 	"strings"
 	"time"
 	"unsafe"
 )
 
-type GDALDataSet struct {
-	DataSetName  string              `json:"ds_name"`
-	RasterCount  int                 `json:"raster_count"`
-	Type         string              `json:"array_type"`
-	XSize        int                 `json:"x_size"`
-	YSize        int                 `json:"y_size"`
-	ProjWKT      string              `json:"proj_wkt"`
-	GeoTransform []float64           `json:"geotransform"`
-	Extras       map[string][]string `json:"extra_metadata"`
-}
-
-type GDALFile struct {
-	FileName string        `json:"file_name"`
-	Driver   string        `json:"file_type"`
-	DataSets []GDALDataSet `json:"datasets"`
-}
-
 var dateFormats []string = []string{"2006-01-02 15:04:05.0", "2006-1-2 15:4:5"}
 
 var durationUnits map[string]time.Duration = map[string]time.Duration{"seconds": time.Second, "hours": time.Hour, "days": time.Hour * 24}
 
-var CWGS84WKT *C.char = C.CString(`GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9108"]],AUTHORITY["EPSG","4326"]]","proj4":"+proj=longlat +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +no_defs `)
+var CWGS84WKT *C.char = C.CString(`GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.017453292        5199433,AUTHORITY["EPSG","9108"]],AUTHORITY["EPSG","4326"]]","proj4":"+proj=longlat +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +no_defs `)
 
 var GDALTypes map[C.GDALDataType]string = map[C.GDALDataType]string{0: "Unkown", 1: "Byte", 2: "Uint16", 3: "Int16",
 	4: "UInt32", 5: "Int32", 6: "Float32", 7: "Float64",
 	8: "CInt16", 9: "CInt32", 10: "CFloat32", 11: "CFloat64",
 	12: "TypeCount"}
 
-type GDALInfo struct {
-	ID    int
-	In    chan string
-	Out   chan GDALFile
-	Error chan error
-}
+type GDALInfo struct{}
 
-func NewGDALInfo(errChan chan error) *GDALInfo {
-	return &GDALInfo{
-		In:    make(chan string),
-		Out:   make(chan GDALFile),
-		Error: errChan,
+func (b *GDALInfo) Extract(args *rpcflow.Args, res *rpcflow.Result) error {
+	cPath := C.CString(args.FilePath)
+	hDataset := C.GDALOpen(cPath, C.GDAL_OF_READONLY)
+	if hDataset == nil {
+		return fmt.Errorf("GDAL could not open dataset: %s", args.FilePath)
 	}
-}
 
-func (gi *GDALInfo) Run() {
-	defer close(gi.Out)
-	C.GDALAllRegister()
+	hDriver := C.GDALGetDatasetDriver(hDataset)
+	shortName := C.GoString(C.GDALGetDriverShortName(hDriver))
 
-	for path := range gi.In {
-		cPath := C.CString(path)
+	metadata := C.GDALGetMetadata(hDataset, C.CString("SUBDATASETS"))
+	nsubds := C.CSLCount(metadata) / C.int(2)
 
-		hDataset := C.GDALOpenShared(cPath, C.GDAL_OF_READONLY)
-		if hDataset == nil {
-			gi.Error <- fmt.Errorf("GDAL could not open dataset: %s", path)
-			continue
+	var datasets = []rpcflow.GDALDataSet{}
+	if nsubds == C.int(0) {
+		// There are no subdatasets
+		dsInfo, err := getDataSetInfo(cPath, shortName)
+		if err != nil {
+			return err
 		}
+		datasets = append(datasets, dsInfo)
 
-		hDriver := C.GDALGetDatasetDriver(hDataset)
-		shortName := C.GoString(C.GDALGetDriverShortName(hDriver))
-
-		metadata := C.GDALGetMetadata(hDataset, C.CString("SUBDATASETS"))
-		nsubds := C.CSLCount(metadata) / C.int(2)
-
-		var datasets = []GDALDataSet{}
-		if nsubds == C.int(0) {
-			// There are no subdatasets
-			dsInfo, err := getDataSetInfo(cPath, shortName)
+	} else {
+		// There are subdatasets
+		for i := C.int(1); i <= nsubds; i++ {
+			subDSId := C.CString(fmt.Sprintf("SUBDATASET_%d_NAME", i))
+			pszSubdatasetName := C.CSLFetchNameValue(metadata, subDSId)
+			C.free(unsafe.Pointer(subDSId))
+			dsInfo, err := getDataSetInfo(pszSubdatasetName, shortName)
 			if err != nil {
-				gi.Error <- err
-				return
+				return err
 			}
 			datasets = append(datasets, dsInfo)
-
-		} else {
-			// There are subdatasets
-			for i := C.int(1); i <= nsubds; i++ {
-				subDSId := C.CString(fmt.Sprintf("SUBDATASET_%d_NAME", i))
-				pszSubdatasetName := C.CSLFetchNameValue(metadata, subDSId)
-				C.free(unsafe.Pointer(subDSId))
-				dsInfo, err := getDataSetInfo(pszSubdatasetName, shortName)
-				if err != nil {
-					gi.Error <- err
-					return
-				}
-				datasets = append(datasets, dsInfo)
-			}
 		}
-
-		C.free(unsafe.Pointer(cPath))
-		C.GDALClose(hDataset)
-
-		gi.Out <- GDALFile{path, shortName, datasets}
 	}
+
+	C.free(unsafe.Pointer(cPath))
+	C.GDALClose(hDataset)
+	
+	*res = rpcflow.Result{args.FilePath, shortName, datasets}
+
+	return nil
 }
 
-func getDataSetInfo(dsName *C.char, driverName string) (GDALDataSet, error) {
+func getDataSetInfo(dsName *C.char, driverName string) (rpcflow.GDALDataSet, error) {
 	datasetName := C.GoString(dsName)
 	hSubdataset := C.GDALOpenShared(dsName, C.GDAL_OF_READONLY)
 	if hSubdataset == nil {
-		return GDALDataSet{}, fmt.Errorf("GDAL could not open dataset: %s", C.GoString(dsName))
+		return rpcflow.GDALDataSet{}, fmt.Errorf("GDAL could not open dataset: %s", C.GoString(dsName))
 	}
 	defer C.GDALClose(hSubdataset)
 
@@ -136,7 +104,7 @@ func getDataSetInfo(dsName *C.char, driverName string) (GDALDataSet, error) {
 	C.GDALGetGeoTransform(hSubdataset, &dArr[0])
 	fArr := (*[6]float64)(unsafe.Pointer(&dArr))
 
-	return GDALDataSet{datasetName, int(C.GDALGetRasterCount(hSubdataset)), GDALTypes[C.GDALGetRasterDataType(hBand)],
+	return rpcflow.GDALDataSet{datasetName, int(C.GDALGetRasterCount(hSubdataset)), GDALTypes[C.GDALGetRasterDataType(hBand)],
 		int(C.GDALGetRasterXSize(hSubdataset)), int(C.GDALGetRasterYSize(hSubdataset)), C.GoString(pszWkt), fArr[:], extras}, nil
 
 }
@@ -189,4 +157,31 @@ func getNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 		return times, nil
 	}
 	return times, fmt.Errorf("Dataset %s doesn't contain times", sdsName)
+}
+
+func main() {
+	C.GDALAllRegister()
+
+	port := flag.Int("p", 1234, "Port RPC.")
+	flag.Parse()
+
+	//Creating an instance of struct which implement Arith interface
+	ginfo := new(GDALInfo)
+
+	// Register a new rpc server (In most cases, you will use default server only)
+	// And register struct we created above by name "Arith"
+	// The wrapper method here ensures that only structs which implement Arith interface
+	// are allowed to register themselves.
+	server := rpc.NewServer()
+	server.Register(ginfo)
+
+	// Listen for incoming tcp packets on specified port.
+	l, e := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	if e != nil {
+		fmt.Printf("listen error:%v\n", e)
+	}
+
+	// This statement links rpc server to the socket, and allows rpc server to accept
+	// rpc request coming from that socket.
+	server.Accept(l)
 }

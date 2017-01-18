@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
-	"flag"
-	"regexp"
-	"path/filepath"
-	"os"
 	"../geolib"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 )
 
 func main() {
@@ -17,25 +17,24 @@ func main() {
 	flag.Parse()
 
 	if len(flag.Args()) != 1 {
-    		flag.Usage()
-    		os.Exit(1)
+		flag.Usage()
+		os.Exit(1)
 	}
 
 	contains := regexp.MustCompile(*re)
-
 
 	crawlPath, err := filepath.Abs(flag.Arg(0))
 
 	if err != nil {
 		fmt.Println("Error:", err)
-    		os.Exit(1)
+		os.Exit(1)
 	}
 
 	fInfo, err := os.Stat(crawlPath)
 
 	if err != nil {
 		fmt.Println("Error:", err)
-    		os.Exit(1)
+		os.Exit(1)
 	}
 
 	if fInfo.IsDir() {
@@ -60,6 +59,6 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println(string(out))
-	}	
+	}
 
 }
