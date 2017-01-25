@@ -7,16 +7,20 @@ package processor
 import "C"
 
 import (
+	"../rpcflow"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 	"unsafe"
 )
 
 type GeoMetaData struct {
 	DataSetName    string            `json:"ds_name"`
+	NameSpace      string            `json:"namespace"`
 	TimeStamps     []time.Time       `json:"timestamps"`
 	FileNameFields map[string]string `json:"filename_fields"`
 	Polygon        string            `json:"polygon"`
@@ -34,7 +38,7 @@ type GeoFile struct {
 	DataSets []GeoMetaData `json:"geo_metadata"`
 }
 
-var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<mission>\d)(?P<path>\d\d\d)(?P<row>\d\d\d)(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<processing_level>[a-zA-Z0-9]+)_(?P<band>[a-zA-Z0-9]+)`,
+var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<mission>\d)(?P<path>\d\d\d)(?P<row>\d\d\d)(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<processing_level>[a-zA-Z0-9]+)_(?P<namespace>[a-zA-Z0-9]+)`,
 	"modis43A4":     `^MCD43A4.A(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d).(?P<horizontal>h\d\d)(?P<vertical>v\d\d).(?P<resolution>\d\d\d).[0-9]+`,
 	"modis1":        `^(?P<product>MCD\d\d[A-Z]\d).A(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d).(?P<horizontal>h\d\d)(?P<vertical>v\d\d).(?P<resolution>\d\d\d).[0-9]+`,
 	"modis2":        `M(?P<satellite>[OD|YD])(?P<product>[0-9]+_[A-Z0-9]+).A[0-9]+.[0-9]+.(?P<collection_version>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,
@@ -48,37 +52,33 @@ var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<missio
 	"agdc_landsat2": `LS(?P<mission>\d)_OLI_(?P<sensor>[A-Z]+)_(?P<product>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,
 	"agdc_dem":      `SRTM_(?P<product>[A-Z]+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`}
 
-type GeoTransformer struct {
-	In      chan GDALFile
-	Out     chan GeoFile
+type GeoParser struct {
+	In      chan rpcflow.GDALFile
 	Error   chan error
 	parsers map[string]*regexp.Regexp
 }
 
-func NewGeoTransformer(errChan chan error) *GeoTransformer {
+func NewGeoParser(errChan chan error) *GeoParser {
 	prs := map[string]*regexp.Regexp{}
 	for key, value := range parserStrings {
 		prs[key] = regexp.MustCompile(value)
 	}
 
-	return &GeoTransformer{
-		In:      make(chan GDALFile),
-		Out:     make(chan GeoFile),
+	return &GeoParser{
+		In:      make(chan rpcflow.GDALFile),
 		Error:   errChan,
 		parsers: prs,
 	}
 }
 
-func (gt *GeoTransformer) Run() {
-	defer close(gt.Out)
-
+func (gt *GeoParser) Run() {
 	for gdalFile := range gt.In {
 		geoFile := GeoFile{FileName: gdalFile.FileName, Driver: gdalFile.Driver}
 
 		nameFields, timeStamp := parseName(gdalFile.FileName, gt.parsers)
 		if nameFields == nil {
 			gt.Error <- fmt.Errorf("GDALFile %v non parseable", gdalFile)
-			return
+			continue
 		}
 		for _, ds := range gdalFile.DataSets {
 			if ds.ProjWKT != "" {
@@ -89,19 +89,38 @@ func (gt *GeoTransformer) Run() {
 					for _, timestr := range nc_times {
 						t, err := time.ParseInLocation("2006-01-02T15:04:05Z", timestr, time.UTC)
 						if err != nil {
-							fmt.Println(err)
+							gt.Error <- err
+							continue
 						}
 						times = append(times, t)
 					}
 				} else {
 					times = []time.Time{timeStamp}
 				}
+				nspace, err := extractNamespace(ds.DataSetName)
+				if err != nil {
+					nspace = nameFields["namespace"]	
+				}
 
-				geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, TimeStamps: times, FileNameFields: nameFields, Polygon: wktPoly, RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, GeoTransform: ds.GeoTransform})
+
+				geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, NameSpace: nspace, TimeStamps: times, FileNameFields: nameFields, Polygon: wktPoly, RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, GeoTransform: ds.GeoTransform})
 			}
 		}
-		gt.Out <- geoFile
+		out, err := json.Marshal(&geoFile)
+		if err != nil {
+			gt.Error <- err
+			continue
+		}
+		fmt.Printf("%s\tgdal\t%s\n", gdalFile.FileName, string(out))
 	}
+}
+
+func extractNamespace(dsName string) (string, error) {
+	parts := strings.Split(dsName, ":")
+	if len(parts) > 2 {
+		return parts[len(parts)-1], nil
+	}
+	return "", fmt.Errorf("%s does not contain a namespace")
 }
 
 func parseName(filePath string, parsers map[string]*regexp.Regexp) (map[string]string, time.Time) {

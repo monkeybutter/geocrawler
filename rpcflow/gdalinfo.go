@@ -21,7 +21,7 @@ type GDALDataSet struct {
 	Extras       map[string][]string
 }
 
-type Result struct {
+type GDALFile struct {
 	FileName string
 	Driver   string
 	DataSets []GDALDataSet
@@ -40,9 +40,9 @@ func NewGDALInfoClient(port int) *GDALInfoClient {
 	return &GDALInfoClient{client: c}
 }
 
-func (t *GDALInfoClient) Extract(filePath string) (Result, error) {
+func (t *GDALInfoClient) Extract(filePath string) (GDALFile, error) {
 	args := &Args{filePath}
-	var reply Result
+	var reply GDALFile
 	err := t.client.Call("GDALInfo.Extract", args, &reply)
 	
 	return reply, err
