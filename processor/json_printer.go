@@ -1,8 +1,8 @@
 package processor
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 )
 
 type JSONPrinter struct {

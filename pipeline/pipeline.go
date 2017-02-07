@@ -60,6 +60,10 @@ func main() {
 	gi2 := proc.NewGDALInfoRPC(1235, errChan)
 	gi3 := proc.NewGDALInfoRPC(1236, errChan)
 	gi4 := proc.NewGDALInfoRPC(1237, errChan)
+	gi5 := proc.NewGDALInfoRPC(1238, errChan)
+	gi6 := proc.NewGDALInfoRPC(1239, errChan)
+	gi7 := proc.NewGDALInfoRPC(1240, errChan)
+	gi8 := proc.NewGDALInfoRPC(1241, errChan)
 	gp := proc.NewGeoParser(errChan)
 	//gi := proc.NewGDALInfo(errChan)
 
@@ -68,23 +72,25 @@ func main() {
 	gi2.In = ss.Out1
 	gi3.In = ss.Out1
 	gi4.In = ss.Out1
-	giOut := mergeGDALInfoRPCChans(gi1.Out, gi2.Out, gi3.Out, gi4.Out)
+	gi5.In = ss.Out1
+	gi6.In = ss.Out1
+	gi7.In = ss.Out1
+	gi8.In = ss.Out1
+	giOut := mergeGDALInfoRPCChans(gi1.Out, gi2.Out, gi3.Out, gi4.Out, gi5.Out, gi6.Out, gi7.Out, gi8.Out)
 	gp.In = giOut
 	pi.In = ss.Out2
-	//gi2.Out = gi1.Out
-	//gi3.Out = gi1.Out
-	//gi4.Out = gi1.Out
 
 	go fc.Run()
 	go ss.Run()
 	go gi1.Run()
-	//go gi2.Run()
-	//go gi3.Run()
-	//go gi4.Run()
+	go gi2.Run()
+	go gi3.Run()
+	go gi4.Run()
+	go gi5.Run()
+	go gi6.Run()
+	go gi7.Run()
+	go gi8.Run()
 	go gp.Run()
 	pi.Run()
-	//go gi2.Run()
-	//go gi3.Run()
-	//go gi4.Run()
 
 }
