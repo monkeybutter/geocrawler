@@ -7,7 +7,7 @@ package main
 import "C"
 
 import (
-	"./rpcflow"
+	"../rpcflow"
 	"flag"
 	"fmt"
 	//"log"

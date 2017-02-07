@@ -1,8 +1,8 @@
 package main
 
 import (
-	proc "./processor"
-	"./rpcflow"
+	proc "../processor"
+	"../rpcflow"
 	"flag"
 	"log"
 	"os"
