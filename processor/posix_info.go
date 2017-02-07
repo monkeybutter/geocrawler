@@ -24,17 +24,20 @@ type POSIXDescriptor struct {
 
 type PosixInfo struct {
 	In    chan string
+	Out   chan string
 	Error chan error
 }
 
 func NewPosixInfo(errChan chan error) *PosixInfo {
 	return &PosixInfo{
-		In:      make(chan string),
-		Error:   errChan,
+		In:    make(chan string, 100),
+		Out:   make(chan string, 100),
+		Error: errChan,
 	}
 }
 
 func (pi *PosixInfo) Run() {
+	defer close(pi.Out)
 
 	for path := range pi.In {
 		finfo, err := os.Stat(path)
@@ -63,5 +66,7 @@ func (pi *PosixInfo) Run() {
 
 		out, _ := json.Marshal(&descr)
 		fmt.Printf("%s\tposix\t%s\n", path, string(out))
+
+		pi.Out <- path
 	}
 }

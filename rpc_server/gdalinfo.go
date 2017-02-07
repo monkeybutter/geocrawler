@@ -71,13 +71,14 @@ func (b *GDALInfo) Extract(args *rpcflow.Args, res *rpcflow.GDALFile) error {
 
 	C.free(unsafe.Pointer(cPath))
 	C.GDALClose(hDataset)
-	
+
 	*res = rpcflow.GDALFile{args.FilePath, shortName, datasets}
 
 	return nil
 }
 
 func getDataSetInfo(dsName *C.char, driverName string) (rpcflow.GDALDataSet, error) {
+
 	datasetName := C.GoString(dsName)
 	hSubdataset := C.GDALOpenShared(dsName, C.GDAL_OF_READONLY)
 	if hSubdataset == nil {
@@ -88,7 +89,7 @@ func getDataSetInfo(dsName *C.char, driverName string) (rpcflow.GDALDataSet, err
 	extras := map[string][]string{}
 	if driverName == "netCDF" {
 		nc_times, err := getNCTime(datasetName, hSubdataset)
-		if err == nil {
+		if err == nil && nc_times != nil {
 			extras["nc_times"] = nc_times
 		}
 	}
@@ -131,8 +132,11 @@ func getDate(inDate string) (time.Time, error) {
 
 func getNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 	times := []string{}
-
 	metadata := C.GDALGetMetadata(hSubdataset, nil)
+	if C.GoString(C.CSLFetchNameValue(metadata, C.CString("time#units"))) == "" {
+		return nil, nil
+	}
+
 	timeUnits := C.GoString(C.CSLFetchNameValue(metadata, C.CString("time#units")))
 	timeUnitsSlice := strings.Split(timeUnits, "since")
 	stepUnit := durationUnits[strings.Trim(timeUnitsSlice[0], " ")]

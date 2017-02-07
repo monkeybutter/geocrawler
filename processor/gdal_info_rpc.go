@@ -13,8 +13,8 @@ type GDALInfoRPC struct {
 
 func NewGDALInfoRPC(port int, errChan chan error) *GDALInfoRPC {
 	return &GDALInfoRPC{
-		In:     make(chan string),
-		Out:    make(chan rpcflow.GDALFile),
+		In:     make(chan string, 100),
+		Out:    make(chan rpcflow.GDALFile, 100),
 		Error:  errChan,
 		Client: rpcflow.NewGDALInfoClient(port),
 	}

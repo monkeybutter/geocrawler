@@ -9,7 +9,6 @@ import "C"
 import (
 	"../geolib"
 	"../rpcflow"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -55,6 +54,7 @@ var parserStrings map[string]string = map[string]string{"landsat": `L(?P<sensor>
 
 type GeoParser struct {
 	In      chan rpcflow.GDALFile
+	Out     chan GeoFile
 	Error   chan error
 	parsers map[string]*regexp.Regexp
 }
@@ -66,21 +66,24 @@ func NewGeoParser(errChan chan error) *GeoParser {
 	}
 
 	return &GeoParser{
-		In:      make(chan rpcflow.GDALFile),
+		In:      make(chan rpcflow.GDALFile, 100),
+		Out:     make(chan GeoFile, 100),
 		Error:   errChan,
 		parsers: prs,
 	}
 }
 
 func (gt *GeoParser) Run() {
+	defer close(gt.Out)
+
 	for gdalFile := range gt.In {
 		geoFile := GeoFile{FileName: gdalFile.FileName, Driver: gdalFile.Driver}
-
+		timeStamp := time.Time{}
 		nameFields, timeStamp := parseName(gdalFile.FileName, gt.parsers)
-		if nameFields == nil {
+		/*if nameFields == nil {
 			gt.Error <- fmt.Errorf("GDALFile %v non parseable", gdalFile)
-			continue
-		}
+			//continue
+		}*/
 		for _, ds := range gdalFile.DataSets {
 			if ds.ProjWKT != "" {
 				poly := geolib.GetPolygonFromGeoTransform(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
@@ -106,12 +109,8 @@ func (gt *GeoParser) Run() {
 				geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, NameSpace: nspace, TimeStamps: times, FileNameFields: nameFields, Polygon: poly.ToWKT(), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
 			}
 		}
-		out, err := json.Marshal(&geoFile)
-		if err != nil {
-			gt.Error <- err
-			continue
-		}
-		fmt.Printf("%s\tgdal\t%s\n", gdalFile.FileName, string(out))
+
+		gt.Out <- geoFile
 	}
 }
 

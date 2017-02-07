@@ -12,7 +12,7 @@ type JSONPrinter struct {
 
 func NewJSONPrinter(errChan chan error) *JSONPrinter {
 	return &JSONPrinter{
-		In:    make(chan GeoFile),
+		In:    make(chan GeoFile, 100),
 		Error: errChan,
 	}
 }

@@ -13,7 +13,7 @@ type FileCrawler struct {
 
 func NewFileCrawler(rootPath string, errChan chan error) *FileCrawler {
 	return &FileCrawler{
-		Out:   make(chan string),
+		Out:   make(chan string, 100),
 		Error: errChan,
 		root:  rootPath,
 	}
