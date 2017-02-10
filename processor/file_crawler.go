@@ -3,19 +3,22 @@ package processor
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 )
 
 type FileCrawler struct {
 	Out   chan string
 	Error chan error
 	root  string
+	re    *regexp.Regexp
 }
 
-func NewFileCrawler(rootPath string, errChan chan error) *FileCrawler {
+func NewFileCrawler(rootPath string, contains *regexp.Regexp, errChan chan error) *FileCrawler {
 	return &FileCrawler{
 		Out:   make(chan string, 100),
 		Error: errChan,
 		root:  rootPath,
+		re:    contains,
 	}
 }
 
@@ -30,7 +33,7 @@ func (fc *FileCrawler) Run() {
 
 	if fInfo.IsDir() {
 		filepath.Walk(fc.root, func(path string, info os.FileInfo, err error) error {
-			if !info.IsDir() {
+			if !info.IsDir() && fc.re.MatchString(path) {
 				fc.Out <- path
 			}
 			return nil

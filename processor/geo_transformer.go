@@ -38,7 +38,7 @@ type GeoFile struct {
 	DataSets []GeoMetaData `json:"geo_metadata"`
 }
 
-var parserStrings map[string]string = map[string]string{"landsat": `L(?P<sensor>[COT])_C(?P<mission>\d)(?P<path>\d\d\d)(?P<row>\d\d\d)(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<processing_level>[a-zA-Z0-9]+)_(?P<namespace>[a-zA-Z0-9]+)`,
+var parserStrings map[string]string = map[string]string{"landsat": `L(?P<sensor>[COT])(?P<mission>\d)(?P<path>\d\d\d)(?P<row>\d\d\d)(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<processing_level>[a-zA-Z0-9]+)_(?P<namespace>[a-zA-Z0-9]+)`,
 	"modis43A4":     `^MCD43A4.A(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d).(?P<horizontal>h\d\d)(?P<vertical>v\d\d).(?P<resolution>\d\d\d).[0-9]+`,
 	"modis1":        `^(?P<product>MCD\d\d[A-Z]\d).A(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d).(?P<horizontal>h\d\d)(?P<vertical>v\d\d).(?P<resolution>\d\d\d).[0-9]+`,
 	"modis2":        `M(?P<satellite>[OD|YD])(?P<product>[0-9]+_[A-Z0-9]+).A[0-9]+.[0-9]+.(?P<collection_version>\d\d\d).(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`,
@@ -78,7 +78,6 @@ func (gt *GeoParser) Run() {
 
 	for gdalFile := range gt.In {
 		geoFile := GeoFile{FileName: gdalFile.FileName, Driver: gdalFile.Driver}
-		timeStamp := time.Time{}
 		nameFields, timeStamp := parseName(gdalFile.FileName, gt.parsers)
 		/*if nameFields == nil {
 			gt.Error <- fmt.Errorf("GDALFile %v non parseable", gdalFile)
