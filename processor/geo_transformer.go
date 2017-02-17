@@ -27,6 +27,7 @@ type GeoMetaData struct {
 	Type           string            `json:"array_type"`
 	XSize          int               `json:"x_size"`
 	YSize          int               `json:"y_size"`
+	Overlays       []rpcflow.Overlay `json:"overlays"`
 	ProjWKT        string            `json:"proj_wkt"`
 	Proj4          string            `json:"proj4"`
 	GeoTransform   []float64         `json:"geotransform"`
@@ -105,7 +106,7 @@ func (gt *GeoParser) Run() {
 					nspace = nameFields["namespace"]
 				}
 
-				geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, NameSpace: nspace, TimeStamps: times, FileNameFields: nameFields, Polygon: poly.ToWKT(), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
+				geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, NameSpace: nspace, TimeStamps: times, FileNameFields: nameFields, Polygon: poly.ToWKT(), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, Overlays: ds.Overlays, ProjWKT: ds.ProjWKT, Proj4: poly.Proj4(), GeoTransform: ds.GeoTransform})
 			}
 		}
 

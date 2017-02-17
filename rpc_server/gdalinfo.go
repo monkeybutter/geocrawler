@@ -10,7 +10,6 @@ import (
 	"../rpcflow"
 	"flag"
 	"fmt"
-	//"log"
 	"math"
 	"net"
 	"net/rpc"
@@ -95,6 +94,14 @@ func getDataSetInfo(dsName *C.char, driverName string) (rpcflow.GDALDataSet, err
 	}
 
 	hBand := C.GDALGetRasterBand(hSubdataset, 1)
+	nOvr := C.GDALGetOverviewCount(hBand)
+	ovrs := make([]rpcflow.Overlay, int(nOvr))
+	fmt.Printf("Dataset has %d overlays\n", nOvr)
+	for i := C.int(0); i < nOvr; i++ {
+		hOvr := C.GDALGetOverview(hBand, i)
+		ovrs[int(i)] = rpcflow.Overlay{int(i), int(C.GDALGetRasterBandXSize(hOvr)), int(C.GDALGetRasterBandYSize(hOvr))}
+	}
+
 	pszWkt := C.GDALGetProjectionRef(hSubdataset)
 	if C.GoString(pszWkt) == "" {
 		pszWkt = CWGS84WKT
@@ -106,7 +113,7 @@ func getDataSetInfo(dsName *C.char, driverName string) (rpcflow.GDALDataSet, err
 	fArr := (*[6]float64)(unsafe.Pointer(&dArr))
 
 	return rpcflow.GDALDataSet{datasetName, int(C.GDALGetRasterCount(hSubdataset)), GDALTypes[C.GDALGetRasterDataType(hBand)],
-		int(C.GDALGetRasterXSize(hSubdataset)), int(C.GDALGetRasterYSize(hSubdataset)), C.GoString(pszWkt), fArr[:], extras}, nil
+		int(C.GDALGetRasterXSize(hSubdataset)), int(C.GDALGetRasterYSize(hSubdataset)), C.GoString(pszWkt), fArr[:], ovrs, extras}, nil
 
 }
 

@@ -55,13 +55,16 @@ func GetDataSetInfo(dsName *C.char, driverName string) GDALDataSet {
 
 	extras := map[string][]string{}
 	if driverName == "netCDF" {
-		nc_times, err := GetNCTime2(datasetName, hSubdataset)
+		nc_times, err := GetNCTime(datasetName, hSubdataset)
 		if err == nil {
 			extras["nc_times"] = nc_times
 		}
 	}
 
 	hBand := C.GDALGetRasterBand(hSubdataset, 1)
+	nOvr := C.GDALGetOverviewCount(hBand)
+	fmt.Printf("Dataset has %d overlays\n", nOvr)
+
 	pszWkt := C.GDALGetProjectionRef(hSubdataset)
 	if C.GoString(pszWkt) == "" {
 		pszWkt = CWGS84WKT
@@ -97,7 +100,7 @@ func getDate(inDate string) time.Time {
 	return time.Time{}
 }
 
-func GetNCTime2(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
+func GetNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 	times := []string{}
 
 	metadata := C.GDALGetMetadata(hSubdataset, nil)
@@ -124,38 +127,7 @@ func GetNCTime2(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 	return times, errors.New("Dataset doesn't contain times")
 }
 
-func GetNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
-	nameParts := strings.Split(sdsName, ":")
-	times := []string{}
-
-	if len(nameParts) == 3 {
-		if nameParts[0] == "NETCDF" {
-			metadata := C.GDALGetMetadata(hSubdataset, nil)
-			value := C.CSLFetchNameValue(metadata, C.CString("NETCDF_DIM_time_VALUES"))
-			if value != nil {
-
-				timeStr := C.GoString(value)
-				for _, tStr := range strings.Split(strings.Trim(timeStr, "{}"), ",") {
-					tF, err := strconv.ParseFloat(tStr, 64)
-					if err != nil {
-						return times, errors.New("Problem parsing dates")
-					}
-					secs, _ := math.Modf(tF)
-					t := time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
-					t = t.Add(time.Second * time.Duration(secs))
-					times = append(times, t.Format("2006-01-02T15:04:05Z"))
-				}
-				return times, nil
-			}
-		}
-	}
-	return times, errors.New("Dataset doesn't contain times")
-}
-
 func GetGDALMetadata(path string) ([]byte, error) {
-
-	// Register all GDAL Drivers
-	C.GDALAllRegister()
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
@@ -190,6 +162,8 @@ func GetGDALMetadata(path string) ([]byte, error) {
 }
 
 func GDALMetadataPrinter(path string, workers *ConcLimiter) {
+	// Register all GDAL Drivers
+	C.GDALAllRegister()
 	defer workers.Decrease()
 
 	json, err := GetGDALMetadata(path)

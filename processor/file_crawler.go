@@ -33,7 +33,7 @@ func (fc *FileCrawler) Run() {
 
 	if fInfo.IsDir() {
 		filepath.Walk(fc.root, func(path string, info os.FileInfo, err error) error {
-			if !info.IsDir() && fc.re.MatchString(path) {
+			if !info.IsDir() && fc.re.MatchString(path) && filepath.Ext(path) != ".ovr" {
 				fc.Out <- path
 			}
 			return nil

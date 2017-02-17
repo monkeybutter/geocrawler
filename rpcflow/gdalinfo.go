@@ -10,6 +10,12 @@ type Args struct {
 	FilePath string
 }
 
+type Overlay struct {
+	Index int
+	XSize int
+	YSize int
+}
+
 type GDALDataSet struct {
 	DataSetName  string
 	RasterCount  int
@@ -18,6 +24,7 @@ type GDALDataSet struct {
 	YSize        int
 	ProjWKT      string
 	GeoTransform []float64
+	Overlays     []Overlay
 	Extras       map[string][]string
 }
 
@@ -44,6 +51,6 @@ func (t *GDALInfoClient) Extract(filePath string) (GDALFile, error) {
 	args := &Args{filePath}
 	var reply GDALFile
 	err := t.client.Call("GDALInfo.Extract", args, &reply)
-	
+
 	return reply, err
 }

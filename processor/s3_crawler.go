@@ -32,10 +32,9 @@ func ListBuckets(contToken *string) (ListBucketResult, error) {
 	if contToken != nil {
 		baseURL = fmt.Sprintf("%s&continuation-token=%s", baseURL, url.QueryEscape(*contToken))
 	}
-	fmt.Println(baseURL)
 	resp, err := http.Get(baseURL)
 	if err != nil {
-		return ListBucketResult{}, err
+		return ListBucketResult{IsTruncated: false}, err
 	}
 	defer resp.Body.Close()
 
@@ -44,31 +43,52 @@ func ListBuckets(contToken *string) (ListBucketResult, error) {
 	var lbRes ListBucketResult
 	err = xml.Unmarshal(buf.Bytes(), &lbRes)
 	if err != nil {
-		return ListBucketResult{}, err
+		return ListBucketResult{IsTruncated: false}, err
 	}
 
 	return lbRes, nil
 
 }
 
-func main() {
-	fmt.Println("AWS Buckets")
+type S3Crawler struct {
+	Out   chan string
+	Error chan error
+	root  string
+}
+
+func NewS3Crawler(rootPath string, errChan chan error) *S3Crawler {
+	return &S3Crawler{
+		Out:   make(chan string, 100),
+		Error: errChan,
+		root:  rootPath,
+	}
+}
+
+func (fc *S3Crawler) Run() {
+	defer close(fc.Out)
 
 	lbRes, err := ListBuckets(nil)
 	if err != nil {
+		fc.Error <- err
 		return
 	}
+
 	for _, contents := range lbRes.Contents {
-		ext := filepath.Ext(contents.Key)
-		if ext == ".TIF" || ext == ".ovr" {
-			fmt.Println(filepath.Join("/vsis3/landsat-pds/", contents.Key))
+		if filepath.Ext(contents.Key) == ".TIF" {
+			fc.Out <- filepath.Join("/vsis3/landsat-pds/", contents.Key)
 		}
 	}
-	lbRes, err = ListBuckets(&lbRes.NextContinuationToken)
-	for _, contents := range lbRes.Contents {
-		ext := filepath.Ext(contents.Key)
-		if ext == ".TIF" || ext == ".ovr" {
-			fmt.Println(filepath.Join("/vsis3/landsat-pds/", contents.Key))
+
+	for lbRes.IsTruncated {
+		lbRes, err = ListBuckets(&lbRes.NextContinuationToken)
+		if err != nil {
+			fc.Error <- err
+			continue
+		}
+		for _, contents := range lbRes.Contents {
+			if filepath.Ext(contents.Key) == ".TIF" {
+				fc.Out <- filepath.Join("/vsis3/landsat-pds/", contents.Key)
+			}
 		}
 	}
 }

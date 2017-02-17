@@ -4,6 +4,7 @@ import (
 	proc "../processor"
 	"../rpcflow"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -47,6 +48,8 @@ func main() {
 	}
 
 	contains := regexp.MustCompile(*re)
+	fmt.Println(contains)
+
 	crawlPath, _ := filepath.Abs(flag.Arg(0))
 
 	errChan := make(chan error)
@@ -56,7 +59,8 @@ func main() {
 		}
 	}()
 
-	fc := proc.NewFileCrawler(crawlPath, contains, errChan)
+	//fc := proc.NewFileCrawler(crawlPath, contains, errChan)
+	fc := proc.NewS3Crawler(crawlPath, errChan)
 	pi := proc.NewPosixInfo(errChan)
 	gi1 := proc.NewGDALInfoRPC(1234, errChan)
 	gi2 := proc.NewGDALInfoRPC(1235, errChan)
