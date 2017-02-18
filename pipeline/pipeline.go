@@ -61,7 +61,7 @@ func main() {
 
 	//fc := proc.NewFileCrawler(crawlPath, contains, errChan)
 	fc := proc.NewS3Crawler(crawlPath, errChan)
-	pi := proc.NewPosixInfo(errChan)
+	//pi := proc.NewPosixInfo(errChan)
 	gi1 := proc.NewGDALInfoRPC(1234, errChan)
 	gi2 := proc.NewGDALInfoRPC(1235, errChan)
 	gi3 := proc.NewGDALInfoRPC(1236, errChan)
@@ -69,17 +69,15 @@ func main() {
 	gp := proc.NewGeoParser(errChan)
 	jp := proc.NewJSONPrinter(errChan)
 
-	pi.In = fc.Out
-	gi1.In = pi.Out
-	gi2.In = pi.Out
-	gi3.In = pi.Out
-	gi4.In = pi.Out
+	gi1.In = fc.Out
+	gi2.In = fc.Out
+	gi3.In = fc.Out
+	gi4.In = fc.Out
 	giOut := mergeGDALInfoRPCChans(gi1.Out, gi2.Out, gi3.Out, gi4.Out)
 	gp.In = giOut
 	jp.In = gp.Out
 
 	go fc.Run()
-	go pi.Run()
 	go gi1.Run()
 	go gi2.Run()
 	go gi3.Run()

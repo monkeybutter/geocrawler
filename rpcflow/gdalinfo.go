@@ -10,10 +10,9 @@ type Args struct {
 	FilePath string
 }
 
-type Overlay struct {
-	Index int
-	XSize int
-	YSize int
+type Overview struct {
+	XSize int  `json:"x_size"`
+	YSize int  `json:"y_size"`
 }
 
 type GDALDataSet struct {
@@ -24,7 +23,7 @@ type GDALDataSet struct {
 	YSize        int
 	ProjWKT      string
 	GeoTransform []float64
-	Overlays     []Overlay
+	Overviews     []Overview
 	Extras       map[string][]string
 }
 

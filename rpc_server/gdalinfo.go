@@ -95,11 +95,10 @@ func getDataSetInfo(dsName *C.char, driverName string) (rpcflow.GDALDataSet, err
 
 	hBand := C.GDALGetRasterBand(hSubdataset, 1)
 	nOvr := C.GDALGetOverviewCount(hBand)
-	ovrs := make([]rpcflow.Overlay, int(nOvr))
-	fmt.Printf("Dataset has %d overlays\n", nOvr)
+	ovrs := make([]rpcflow.Overview, int(nOvr))
 	for i := C.int(0); i < nOvr; i++ {
 		hOvr := C.GDALGetOverview(hBand, i)
-		ovrs[int(i)] = rpcflow.Overlay{int(i), int(C.GDALGetRasterBandXSize(hOvr)), int(C.GDALGetRasterBandYSize(hOvr))}
+		ovrs[int(i)] = rpcflow.Overview{int(C.GDALGetRasterBandXSize(hOvr)), int(C.GDALGetRasterBandYSize(hOvr))}
 	}
 
 	pszWkt := C.GDALGetProjectionRef(hSubdataset)
