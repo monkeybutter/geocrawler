@@ -66,6 +66,10 @@ func main() {
 	gi2 := proc.NewGDALInfoRPC(1235, errChan)
 	gi3 := proc.NewGDALInfoRPC(1236, errChan)
 	gi4 := proc.NewGDALInfoRPC(1237, errChan)
+	gi5 := proc.NewGDALInfoRPC(1238, errChan)
+	gi6 := proc.NewGDALInfoRPC(1239, errChan)
+	gi7 := proc.NewGDALInfoRPC(1240, errChan)
+	gi8 := proc.NewGDALInfoRPC(1241, errChan)
 	gp := proc.NewGeoParser(errChan)
 	jp := proc.NewJSONPrinter(errChan)
 
@@ -73,7 +77,11 @@ func main() {
 	gi2.In = fc.Out
 	gi3.In = fc.Out
 	gi4.In = fc.Out
-	giOut := mergeGDALInfoRPCChans(gi1.Out, gi2.Out, gi3.Out, gi4.Out)
+	gi5.In = fc.Out
+	gi6.In = fc.Out
+	gi7.In = fc.Out
+	gi8.In = fc.Out
+	giOut := mergeGDALInfoRPCChans(gi1.Out, gi2.Out, gi3.Out, gi4.Out, gi5.Out, gi6.Out, gi7.Out, gi8.Out)
 	gp.In = giOut
 	jp.In = gp.Out
 
@@ -82,7 +90,10 @@ func main() {
 	go gi2.Run()
 	go gi3.Run()
 	go gi4.Run()
+	go gi5.Run()
+	go gi6.Run()
+	go gi7.Run()
+	go gi8.Run()
 	go gp.Run()
 	jp.Run()
-
 }
