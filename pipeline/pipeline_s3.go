@@ -5,9 +5,6 @@ import (
 	"../rpcflow"
 	"flag"
 	"log"
-	"os"
-	"path/filepath"
-	"regexp"
 	"sync"
 )
 
@@ -38,18 +35,13 @@ func mergeGDALInfoRPCChans(cs ...chan rpcflow.GDALFile) chan rpcflow.GDALFile {
 }
 
 func main() {
-	re := flag.String("re", ".*", "Regular expression to match specific files when crawling.")
+	a := flag.String("a", "None", "After after a certain key.")
 	flag.Parse()
 
-	if len(flag.Args()) != 1 {
-		flag.Usage()
-		os.Exit(1)
+	if *a == "None" {
+		a = nil
 	}
-
-	contains := regexp.MustCompile(*re)
-
-	crawlPath, _ := filepath.Abs(flag.Arg(0))
-
+	
 	errChan := make(chan error)
 	go func() {
 		for err := range errChan {
@@ -57,8 +49,7 @@ func main() {
 		}
 	}()
 
-	fc := proc.NewFileCrawler(crawlPath, contains, errChan)
-	pi := proc.NewPosixInfo(errChan)
+	fc := proc.NewS3Crawler(a, errChan)
 	gi1 := proc.NewGDALInfoRPC(1234, errChan)
 	gi2 := proc.NewGDALInfoRPC(1235, errChan)
 	gi3 := proc.NewGDALInfoRPC(1236, errChan)
@@ -70,21 +61,19 @@ func main() {
 	gp := proc.NewGeoParser(errChan)
 	jp := proc.NewJSONPrinter(errChan)
 
-	pi.In = fc.Out
-	gi1.In = pi.Out
-	gi2.In = pi.Out
-	gi3.In = pi.Out
-	gi4.In = pi.Out
-	gi5.In = pi.Out
-	gi6.In = pi.Out
-	gi7.In = pi.Out
-	gi8.In = pi.Out
+	gi1.In = fc.Out
+	gi2.In = fc.Out
+	gi3.In = fc.Out
+	gi4.In = fc.Out
+	gi5.In = fc.Out
+	gi6.In = fc.Out
+	gi7.In = fc.Out
+	gi8.In = fc.Out
 	giOut := mergeGDALInfoRPCChans(gi1.Out, gi2.Out, gi3.Out, gi4.Out, gi5.Out, gi6.Out, gi7.Out, gi8.Out)
 	gp.In = giOut
 	jp.In = gp.Out
 
 	go fc.Run()
-	go pi.Run()
 	go gi1.Run()
 	go gi2.Run()
 	go gi3.Run()

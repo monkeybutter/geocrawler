@@ -26,9 +26,12 @@ type ListBucketResult struct {
 	Contents              []Contents
 }
 
-func ListBuckets(contToken *string) (ListBucketResult, error) {
+func ListBuckets(contToken, startAfter *string) (ListBucketResult, error) {
 	baseURL := "http://landsat-pds.s3.amazonaws.com?list-type=2"
 
+	if startAfter != nil {
+		baseURL = fmt.Sprintf("%s&start-after=%s", baseURL, url.QueryEscape(*startAfter))
+	}
 	if contToken != nil {
 		baseURL = fmt.Sprintf("%s&continuation-token=%s", baseURL, url.QueryEscape(*contToken))
 	}
@@ -53,21 +56,21 @@ func ListBuckets(contToken *string) (ListBucketResult, error) {
 type S3Crawler struct {
 	Out   chan string
 	Error chan error
-	root  string
+	startAfter *string
 }
 
-func NewS3Crawler(rootPath string, errChan chan error) *S3Crawler {
+func NewS3Crawler(stAfter *string, errChan chan error) *S3Crawler {
 	return &S3Crawler{
-		Out:   make(chan string, 100),
+		Out: make(chan string, 100),
 		Error: errChan,
-		root:  rootPath,
+		startAfter: stAfter,
 	}
 }
 
 func (fc *S3Crawler) Run() {
 	defer close(fc.Out)
 
-	lbRes, err := ListBuckets(nil)
+	lbRes, err := ListBuckets(nil, fc.startAfter)
 	if err != nil {
 		fc.Error <- err
 		return
@@ -80,7 +83,7 @@ func (fc *S3Crawler) Run() {
 	}
 
 	for lbRes.IsTruncated {
-		lbRes, err = ListBuckets(&lbRes.NextContinuationToken)
+		lbRes, err = ListBuckets(&lbRes.NextContinuationToken, nil)
 		if err != nil {
 			fc.Error <- err
 			continue
