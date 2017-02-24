@@ -34,11 +34,14 @@ type GDALInfo struct{}
 
 func (b *GDALInfo) Extract(args *rpcflow.Args, res *rpcflow.GDALFile) error {
 	cPath := C.CString(args.FilePath)
-	hDataset := C.GDALOpen(cPath, C.GDAL_OF_READONLY)
+	defer C.free(unsafe.Pointer(cPath))
+
+	hDataset := C.GDALOpenShared(cPath, C.GDAL_OF_READONLY)
 	if hDataset == nil {
 		return fmt.Errorf("GDAL could not open dataset: %s", args.FilePath)
 	}
-
+	defer C.GDALClose(hDataset)
+	
 	hDriver := C.GDALGetDatasetDriver(hDataset)
 	shortName := C.GoString(C.GDALGetDriverShortName(hDriver))
 
@@ -67,9 +70,6 @@ func (b *GDALInfo) Extract(args *rpcflow.Args, res *rpcflow.GDALFile) error {
 			datasets = append(datasets, dsInfo)
 		}
 	}
-
-	C.free(unsafe.Pointer(cPath))
-	C.GDALClose(hDataset)
 
 	*res = rpcflow.GDALFile{args.FilePath, shortName, datasets}
 

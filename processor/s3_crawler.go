@@ -19,7 +19,7 @@ type Contents struct {
 
 type ListBucketResult struct {
 	Name                  string
-	NextContinuationToken string
+	NextContinuationToken *string
 	KeyCount              int
 	MaxKeys               int
 	IsTruncated           bool
@@ -70,20 +70,11 @@ func NewS3Crawler(stAfter *string, errChan chan error) *S3Crawler {
 func (fc *S3Crawler) Run() {
 	defer close(fc.Out)
 
-	lbRes, err := ListBuckets(nil, fc.startAfter)
-	if err != nil {
-		fc.Error <- err
-		return
-	}
-
-	for _, contents := range lbRes.Contents {
-		if filepath.Ext(contents.Key) == ".TIF" {
-			fc.Out <- filepath.Join("/vsis3/landsat-pds/", contents.Key)
-		}
-	}
+	lbRes := ListBucketResult{IsTruncated: true, NextContinuationToken:nil}
+	var err error
 
 	for lbRes.IsTruncated {
-		lbRes, err = ListBuckets(&lbRes.NextContinuationToken, nil)
+		lbRes, err = ListBuckets(lbRes.NextContinuationToken, fc.startAfter)
 		if err != nil {
 			fc.Error <- err
 			continue
@@ -93,5 +84,6 @@ func (fc *S3Crawler) Run() {
 				fc.Out <- filepath.Join("/vsis3/landsat-pds/", contents.Key)
 			}
 		}
+		fc.startAfter = nil
 	}
 }
