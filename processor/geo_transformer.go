@@ -1,9 +1,27 @@
 package processor
 
+// #include <stdio.h>
+// #include <stdlib.h>
 // #include "gdal.h"
 // #include "ogr_api.h"
 // #include "ogr_srs_api.h"
+// #include "cpl_conv.h"
 // #cgo LDFLAGS: -lgdal
+//char *getProj4(char *projWKT)
+//{
+//	char *pszProj4;
+//	char *result;
+//	OGRSpatialReferenceH hSRS;
+//
+//	hSRS = OSRNewSpatialReference(projWKT);
+//	OSRExportToProj4(hSRS, &pszProj4);
+//	result = strdup(pszProj4);
+//	
+//	OSRDestroySpatialReference(hSRS);
+//	CPLFree(pszProj4);
+//	
+//	return result; 
+//}
 import "C"
 
 import (
@@ -54,51 +72,49 @@ var parserStrings map[string]string = map[string]string{"landsat": `L(?P<sensor>
 	"agdc_dem":      `SRTM_(?P<product>[A-Z]+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`}
 
 
-func getPolygonFromGeoTransform(projWKT string, geoTrans []float64, xSize, ySize int) C.OGRGeometryH {
+func getGeometryWKT(geot []float64, xSize, ySize int) string {
+	var ulX, ulY, lrX, lrY C.double
+	C.GDALApplyGeoTransform((*C.double)(unsafe.Pointer(&geot[0])), 0, 0, &ulX, &ulY);
+	C.GDALApplyGeoTransform((*C.double)(unsafe.Pointer(&geot[0])), C.double(xSize), C.double(ySize), &lrX, &lrY);
+	return fmt.Sprintf("POLYGON ((%f %f,%f %f,%f %f,%f %f,%f %f))", ulX, ulY, ulX, lrY, lrX, lrY, lrX, ulY, ulX, ulY)
+}
+
+/*
+func getParamsFromGeoTransform(projWKT string, geoTrans []float64, xSize, ySize int) (string, string, string) {
+	fmt.Println("AAAA", projWKT, geoTrans, xSize, ySize)
 	var ulX, ulY, lrX, lrY float64
 	C.GDALApplyGeoTransform((*C.double)(&geoTrans[0]), C.double(0), C.double(0), (*C.double)(&ulX), (*C.double)(&ulY))
 	C.GDALApplyGeoTransform((*C.double)(&geoTrans[0]), C.double(xSize), C.double(ySize), (*C.double)(&lrX), (*C.double)(&lrY))
 
-	polyWKT := fmt.Sprintf("POLYGON ((%f %f,%f %f,%f %f,%f %f,%f %f))", ulX, ulY, ulX, lrY, lrX, lrY, lrX, ulY, ulX, ulY)
-	
-	ppszData := C.CString(polyWKT)
-	defer C.free(unsafe.Pointer(ppszData))
+	polyWKT := C.CString(fmt.Sprintf("POLYGON ((%f %f,%f %f,%f %f,%f %f,%f %f))", ulX, ulY, ulX, lrY, lrX, lrY, lrX, ulY, ulX, ulY))
+	defer C.free(unsafe.Pointer(polyWKT))
 
-	hSRS := C.OSRNewSpatialReference(nil)
 	cProjWKT := C.CString(projWKT)
 	defer C.free(unsafe.Pointer(cProjWKT))
-
-	C.OSRImportFromWkt(hSRS, &cProjWKT)
+	hSRS := C.OSRNewSpatialReference(cProjWKT)
+	defer C.OSRDestroySpatialReference(hSRS)
 
 	var hPt C.OGRGeometryH
-	C.OGR_G_CreateFromWkt(&ppszData, hSRS, &hPt)
-
-	return C.OGR_G_Clone(hPt)
-}
-
-func Geom2WKT(geom C.OGRGeometryH) string {
+	defer C.OGR_G_DestroyGeometry(hPt)
+	
+	C.OGR_G_CreateFromWkt(&polyWKT, hSRS, &hPt)
+	
 	var ppszSrcText *C.char
 	defer C.free(unsafe.Pointer(ppszSrcText))
-
-	C.OGR_G_ExportToWkt(geom, &ppszSrcText)
-	return C.GoString(ppszSrcText)
-}
-
-func Proj4(geom C.OGRGeometryH) string {
+	C.OGR_G_ExportToWkt(hPt, &ppszSrcText)
+	
 	var pszProj4 *C.char
 	defer C.free(unsafe.Pointer(pszProj4))
-
-	C.OSRExportToProj4(C.OGR_G_GetSpatialReference(geom), &pszProj4)
-	return C.GoString(pszProj4)
-}
-
-func ProjWKT(geom C.OGRGeometryH) string {
+	C.OSRExportToProj4(hSRS, &pszProj4)
+	
 	var pszProjWKT *C.char
 	defer C.free(unsafe.Pointer(pszProjWKT))
-
-	C.OSRExportToWkt(C.OGR_G_GetSpatialReference(geom), &pszProjWKT)
-	return C.GoString(pszProjWKT)
+	C.OSRExportToWkt(hSRS, &pszProjWKT)
+	
+	return C.GoString(ppszSrcText), C.GoString(pszProjWKT), C.GoString(pszProj4)
+	return "", "", ""
 }
+*/
 
 type GeoParser struct {
 	In      chan rpcflow.GDALFile
@@ -129,13 +145,16 @@ func (gt *GeoParser) Run() {
 		nameFields, timeStamp := parseName(gdalFile.FileName, gt.parsers)
 		/*if nameFields == nil {
 			gt.Error <- fmt.Errorf("GDALFile %v non parseable", gdalFile)
-			//continue
+			continue
 		}*/
 		for _, ds := range gdalFile.DataSets {
 			if ds.ProjWKT != "" {
-				poly := getPolygonFromGeoTransform(ds.ProjWKT, ds.GeoTransform, ds.XSize, ds.YSize)
-				hSRS := C.OGR_G_GetSpatialReference(poly)
-				defer C.OSRDestroySpatialReference(hSRS)
+				polyWKT := getGeometryWKT(ds.GeoTransform, ds.XSize, ds.YSize)
+				cProjWKT := C.CString(ds.ProjWKT)
+				cProj4 := C.getProj4(cProjWKT)
+				C.free(unsafe.Pointer(cProjWKT))
+				proj4 := C.GoString(cProj4)	
+				C.free(unsafe.Pointer(cProj4))
 
 				var times []time.Time
 				if nc_times, ok := ds.Extras["nc_times"]; ok {
@@ -155,7 +174,7 @@ func (gt *GeoParser) Run() {
 					nspace = nameFields["namespace"]
 				}
 
-				geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, NameSpace: nspace, TimeStamps: times, FileNameFields: nameFields, Polygon: Geom2WKT(poly), RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, Overviews: ds.Overviews, ProjWKT: ProjWKT(poly), Proj4: Proj4(poly), GeoTransform: ds.GeoTransform})
+				geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, NameSpace: nspace, TimeStamps: times, FileNameFields: nameFields, Polygon: polyWKT, RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, Overviews: ds.Overviews, ProjWKT: ds.ProjWKT, Proj4: proj4, GeoTransform: ds.GeoTransform})
 			}
 		}
 

@@ -23,6 +23,7 @@ func (jp *JSONPrinter) Run() {
 		out, err := json.Marshal(&geoFile)
 		if err != nil {
 			jp.Error <- err
+			fmt.Println(string(out))
 			return
 		}
 		fmt.Printf("%s\tgdal\t%s\n", geoFile.FileName, string(out))

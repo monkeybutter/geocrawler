@@ -1,9 +1,18 @@
 package main
 
+// #include <stdio.h>
+// #include <stdlib.h>
 // #include "gdal.h"
 // #include "ogr_srs_api.h" /* for SRS calls */
 // #include "cpl_string.h"
 // #cgo LDFLAGS: -lgdal
+//void openFile(char *cPath)
+//{
+//	GDALDatasetH hDataset;
+//	hDataset = GDALOpen(cPath, GDAL_OF_READONLY);
+//	GDALClose(hDataset);
+//	return; 
+//}
 import "C"
 
 import (
@@ -25,6 +34,10 @@ var durationUnits map[string]time.Duration = map[string]time.Duration{"seconds":
 
 var CWGS84WKT *C.char = C.CString(`GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.017453292        5199433,AUTHORITY["EPSG","9108"]],AUTHORITY["EPSG","4326"]]","proj4":"+proj=longlat +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +no_defs `)
 
+var CsubDS *C.char = C.CString("SUBDATASETS")
+var CtimeUnits *C.char = C.CString("time#units")
+var CncDimTimeValues *C.char = C.CString("NETCDF_DIM_time_VALUES")
+
 var GDALTypes map[C.GDALDataType]string = map[C.GDALDataType]string{0: "Unkown", 1: "Byte", 2: "Uint16", 3: "Int16",
 	4: "UInt32", 5: "Int32", 6: "Float32", 7: "Float64",
 	8: "CInt16", 9: "CInt32", 10: "CFloat32", 11: "CFloat64",
@@ -35,17 +48,14 @@ type GDALInfo struct{}
 func (b *GDALInfo) Extract(args *rpcflow.Args, res *rpcflow.GDALFile) error {
 	cPath := C.CString(args.FilePath)
 	defer C.free(unsafe.Pointer(cPath))
-
-	hDataset := C.GDALOpenShared(cPath, C.GDAL_OF_READONLY)
-	if hDataset == nil {
-		return fmt.Errorf("GDAL could not open dataset: %s", args.FilePath)
-	}
+	hDataset := C.GDALOpenShared(cPath, C.GA_ReadOnly)
 	defer C.GDALClose(hDataset)
 	
 	hDriver := C.GDALGetDatasetDriver(hDataset)
-	shortName := C.GoString(C.GDALGetDriverShortName(hDriver))
+	cShortName := C.GDALGetDriverShortName(hDriver)
+	shortName := C.GoString(cShortName)
 
-	metadata := C.GDALGetMetadata(hDataset, C.CString("SUBDATASETS"))
+	metadata := C.GDALGetMetadata(hDataset, CsubDS)
 	nsubds := C.CSLCount(metadata) / C.int(2)
 
 	var datasets = []rpcflow.GDALDataSet{}
@@ -62,7 +72,6 @@ func (b *GDALInfo) Extract(args *rpcflow.Args, res *rpcflow.GDALFile) error {
 		for i := C.int(1); i <= nsubds; i++ {
 			subDSId := C.CString(fmt.Sprintf("SUBDATASET_%d_NAME", i))
 			pszSubdatasetName := C.CSLFetchNameValue(metadata, subDSId)
-			C.free(unsafe.Pointer(subDSId))
 			dsInfo, err := getDataSetInfo(pszSubdatasetName, shortName)
 			if err != nil {
 				return err
@@ -72,7 +81,7 @@ func (b *GDALInfo) Extract(args *rpcflow.Args, res *rpcflow.GDALFile) error {
 	}
 
 	*res = rpcflow.GDALFile{args.FilePath, shortName, datasets}
-
+	
 	return nil
 }
 
@@ -81,7 +90,7 @@ func getDataSetInfo(dsName *C.char, driverName string) (rpcflow.GDALDataSet, err
 	datasetName := C.GoString(dsName)
 	hSubdataset := C.GDALOpenShared(dsName, C.GDAL_OF_READONLY)
 	if hSubdataset == nil {
-		return rpcflow.GDALDataSet{}, fmt.Errorf("GDAL could not open dataset: %s", C.GoString(dsName))
+		return rpcflow.GDALDataSet{}, fmt.Errorf("GDAL could not open dataset: %s", datasetName)
 	}
 	defer C.GDALClose(hSubdataset)
 
@@ -110,7 +119,6 @@ func getDataSetInfo(dsName *C.char, driverName string) (rpcflow.GDALDataSet, err
 	dArr := [6]C.double{}
 	C.GDALGetGeoTransform(hSubdataset, &dArr[0])
 	fArr := (*[6]float64)(unsafe.Pointer(&dArr))
-
 	return rpcflow.GDALDataSet{datasetName, int(C.GDALGetRasterCount(hSubdataset)), GDALTypes[C.GDALGetRasterDataType(hBand)],
 		int(C.GDALGetRasterXSize(hSubdataset)), int(C.GDALGetRasterYSize(hSubdataset)), C.GoString(pszWkt), fArr[:], ovrs, extras}, nil
 
@@ -139,11 +147,11 @@ func getDate(inDate string) (time.Time, error) {
 func getNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 	times := []string{}
 	metadata := C.GDALGetMetadata(hSubdataset, nil)
-	if C.GoString(C.CSLFetchNameValue(metadata, C.CString("time#units"))) == "" {
+	if C.GoString(C.CSLFetchNameValue(metadata, CtimeUnits)) == "" {
 		return nil, nil
 	}
 
-	timeUnits := C.GoString(C.CSLFetchNameValue(metadata, C.CString("time#units")))
+	timeUnits := C.GoString(C.CSLFetchNameValue(metadata, CtimeUnits))
 	timeUnitsSlice := strings.Split(timeUnits, "since")
 	stepUnit := durationUnits[strings.Trim(timeUnitsSlice[0], " ")]
 	startDate, err := getDate(strings.Trim(timeUnitsSlice[1], " "))
@@ -151,7 +159,7 @@ func getNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 		return times, err
 	}
 
-	value := C.CSLFetchNameValue(metadata, C.CString("NETCDF_DIM_time_VALUES"))
+	value := C.CSLFetchNameValue(metadata, CncDimTimeValues)
 	if value != nil {
 
 		timeStr := C.GoString(value)
