@@ -41,7 +41,7 @@ func main() {
 	if *a == "None" {
 		a = nil
 	}
-	
+
 	errChan := make(chan error)
 	go func() {
 		for err := range errChan {
@@ -50,14 +50,14 @@ func main() {
 	}()
 
 	fc := proc.NewS3Crawler(a, errChan)
-	gi1 := proc.NewGDALInfoRPC(1234, errChan)
-	gi2 := proc.NewGDALInfoRPC(1235, errChan)
-	gi3 := proc.NewGDALInfoRPC(1236, errChan)
-	gi4 := proc.NewGDALInfoRPC(1237, errChan)
-	gi5 := proc.NewGDALInfoRPC(1238, errChan)
-	gi6 := proc.NewGDALInfoRPC(1239, errChan)
-	gi7 := proc.NewGDALInfoRPC(1240, errChan)
-	gi8 := proc.NewGDALInfoRPC(1241, errChan)
+	gi1 := proc.NewGDALInfoRPCS3(1234, errChan)
+	gi2 := proc.NewGDALInfoRPCS3(1235, errChan)
+	gi3 := proc.NewGDALInfoRPCS3(1236, errChan)
+	gi4 := proc.NewGDALInfoRPCS3(1237, errChan)
+	gi5 := proc.NewGDALInfoRPCS3(1238, errChan)
+	gi6 := proc.NewGDALInfoRPCS3(1239, errChan)
+	gi7 := proc.NewGDALInfoRPCS3(1240, errChan)
+	gi8 := proc.NewGDALInfoRPCS3(1241, errChan)
 	gp := proc.NewGeoParser(errChan)
 	jp := proc.NewJSONPrinter(errChan)
 

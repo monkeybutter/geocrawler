@@ -11,7 +11,7 @@ package main
 //	GDALDatasetH hDataset;
 //	hDataset = GDALOpen(cPath, GDAL_OF_READONLY);
 //	GDALClose(hDataset);
-//	return; 
+//	return;
 //}
 import "C"
 
@@ -50,7 +50,7 @@ func (b *GDALInfo) Extract(args *rpcflow.Args, res *rpcflow.GDALFile) error {
 	defer C.free(unsafe.Pointer(cPath))
 	hDataset := C.GDALOpenShared(cPath, C.GA_ReadOnly)
 	defer C.GDALClose(hDataset)
-	
+
 	hDriver := C.GDALGetDatasetDriver(hDataset)
 	cShortName := C.GDALGetDriverShortName(hDriver)
 	shortName := C.GoString(cShortName)
@@ -81,7 +81,7 @@ func (b *GDALInfo) Extract(args *rpcflow.Args, res *rpcflow.GDALFile) error {
 	}
 
 	*res = rpcflow.GDALFile{args.FilePath, shortName, datasets}
-	
+
 	return nil
 }
 
