@@ -16,16 +16,17 @@ package processor
 //	hSRS = OSRNewSpatialReference(projWKT);
 //	OSRExportToProj4(hSRS, &pszProj4);
 //	result = strdup(pszProj4);
-//	
+//
 //	OSRDestroySpatialReference(hSRS);
 //	CPLFree(pszProj4);
-//	
-//	return result; 
+//
+//	return result;
 //}
 import "C"
 
 import (
 	"../rpcflow"
+	"crypto/md5"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -33,24 +34,23 @@ import (
 	"strings"
 	"time"
 	"unsafe"
-	"crypto/md5"
 )
 
 type GeoMetaData struct {
-	DataSetName    string            `json:"ds_name"`
-	NameSpace      string            `json:"namespace"`
-	TimeStamps     []time.Time       `json:"timestamps"`
-	GeoTempIDs     []string          `json:"geotemp_ids"`
-	FileNameFields map[string]string `json:"filename_fields"`
-	Polygon        string            `json:"polygon"`
-	RasterCount    int               `json:"raster_count"`
-	Type           string            `json:"array_type"`
-	XSize          int               `json:"x_size"`
-	YSize          int               `json:"y_size"`
+	DataSetName    string             `json:"ds_name"`
+	NameSpace      string             `json:"namespace"`
+	TimeStamps     []time.Time        `json:"timestamps"`
+	GeoTempIDs     []string           `json:"geotemp_ids"`
+	FileNameFields map[string]string  `json:"filename_fields"`
+	Polygon        string             `json:"polygon"`
+	RasterCount    int                `json:"raster_count"`
+	Type           string             `json:"array_type"`
+	XSize          int                `json:"x_size"`
+	YSize          int                `json:"y_size"`
 	Overviews      []rpcflow.Overview `json:"overviews"`
-	ProjWKT        string            `json:"proj_wkt"`
-	Proj4          string            `json:"proj4"`
-	GeoTransform   []float64         `json:"geotransform"`
+	ProjWKT        string             `json:"proj_wkt"`
+	Proj4          string             `json:"proj4"`
+	GeoTransform   []float64          `json:"geotransform"`
 }
 
 type GeoFile struct {
@@ -73,11 +73,10 @@ var parserStrings map[string]string = map[string]string{"landsat": `L(?P<sensor>
 	"agdc_landsat2": `LS(?P<mission>\d)_OLI_(?P<sensor>[A-Z]+)_(?P<product>[A-Z]+)_(?P<epsg>\d+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d).`,
 	"agdc_dem":      `SRTM_(?P<product>[A-Z]+)_(?P<x_coord>-?\d+)_(?P<y_coord>-?\d+)_(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)(?P<hour>\d\d)(?P<minute>\d\d)(?P<second>\d\d)`}
 
-
 func getGeometryWKT(geot []float64, xSize, ySize int) string {
 	var ulX, ulY, lrX, lrY C.double
-	C.GDALApplyGeoTransform((*C.double)(unsafe.Pointer(&geot[0])), 0, 0, &ulX, &ulY);
-	C.GDALApplyGeoTransform((*C.double)(unsafe.Pointer(&geot[0])), C.double(xSize), C.double(ySize), &lrX, &lrY);
+	C.GDALApplyGeoTransform((*C.double)(unsafe.Pointer(&geot[0])), 0, 0, &ulX, &ulY)
+	C.GDALApplyGeoTransform((*C.double)(unsafe.Pointer(&geot[0])), C.double(xSize), C.double(ySize), &lrX, &lrY)
 	return fmt.Sprintf("POLYGON ((%f %f,%f %f,%f %f,%f %f,%f %f))", ulX, ulY, ulX, lrY, lrX, lrY, lrX, ulY, ulX, ulY)
 }
 
@@ -98,21 +97,21 @@ func getParamsFromGeoTransform(projWKT string, geoTrans []float64, xSize, ySize 
 
 	var hPt C.OGRGeometryH
 	defer C.OGR_G_DestroyGeometry(hPt)
-	
+
 	C.OGR_G_CreateFromWkt(&polyWKT, hSRS, &hPt)
-	
+
 	var ppszSrcText *C.char
 	defer C.free(unsafe.Pointer(ppszSrcText))
 	C.OGR_G_ExportToWkt(hPt, &ppszSrcText)
-	
+
 	var pszProj4 *C.char
 	defer C.free(unsafe.Pointer(pszProj4))
 	C.OSRExportToProj4(hSRS, &pszProj4)
-	
+
 	var pszProjWKT *C.char
 	defer C.free(unsafe.Pointer(pszProjWKT))
 	C.OSRExportToWkt(hSRS, &pszProjWKT)
-	
+
 	return C.GoString(ppszSrcText), C.GoString(pszProjWKT), C.GoString(pszProj4)
 	return "", "", ""
 }
@@ -155,7 +154,7 @@ func (gt *GeoParser) Run() {
 				cProjWKT := C.CString(ds.ProjWKT)
 				cProj4 := C.getProj4(cProjWKT)
 				C.free(unsafe.Pointer(cProjWKT))
-				proj4 := C.GoString(cProj4)	
+				proj4 := C.GoString(cProj4)
 				C.free(unsafe.Pointer(cProj4))
 
 				var times []time.Time
@@ -182,7 +181,7 @@ func (gt *GeoParser) Run() {
 					nspace = nameFields["namespace"]
 				}
 
-				geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, NameSpace: nspace, TimeStamps: times, FileNameFields: nameFields, Polygon: polyWKT, RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, Overviews: ds.Overviews, ProjWKT: ds.ProjWKT, Proj4: proj4, GeoTransform: ds.GeoTransform})
+				geoFile.DataSets = append(geoFile.DataSets, GeoMetaData{DataSetName: ds.DataSetName, NameSpace: nspace, TimeStamps: times, GeoTempIDs: ids, FileNameFields: nameFields, Polygon: polyWKT, RasterCount: ds.RasterCount, Type: ds.Type, XSize: ds.XSize, YSize: ds.YSize, Overviews: ds.Overviews, ProjWKT: ds.ProjWKT, Proj4: proj4, GeoTransform: ds.GeoTransform})
 			}
 		}
 
@@ -199,7 +198,7 @@ func extractNamespace(dsName string) (string, error) {
 }
 
 func getGeoTempID(geoWKT string, t time.Time) string {
-	data := []byte(fmt.Sprintf("%s@%s", geoWKT, t.Format("2006-01-02T15:04:05"))
+	data := []byte(fmt.Sprintf("%s@%s", geoWKT, t.Format("2006-01-02T15:04:05")))
 	return fmt.Sprintf("%x", md5.Sum(data))
 }
 
