@@ -63,7 +63,6 @@ func GetDataSetInfo(dsName *C.char, driverName string) GDALDataSet {
 
 	hBand := C.GDALGetRasterBand(hSubdataset, 1)
 	nOvr := C.GDALGetOverviewCount(hBand)
-	fmt.Printf("Dataset has %d overlays\n", nOvr)
 
 	pszWkt := C.GDALGetProjectionRef(hSubdataset)
 	if C.GoString(pszWkt) == "" {
@@ -120,7 +119,7 @@ func GetNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 			}
 			secs, _ := math.Modf(tF)
 			t := startDate.Add(time.Duration(secs) * stepUnit)
-			times = append(times, t.Format("2006-01-02T15:04:05Z"))
+			times = append(times, t.UTC().Format("2006-01-02T15:04:05Z"))
 		}
 		return times, nil
 	}
@@ -128,12 +127,13 @@ func GetNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 }
 
 func GetGDALMetadata(path string) ([]byte, error) {
+	C.GDALAllRegister()
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
-	hDataset := C.GDALOpenEx(cPath, C.GDAL_OF_READONLY|C.GDAL_OF_RASTER, nil, nil, nil)
+	hDataset := C.GDALOpen(cPath, C.GDAL_OF_READONLY)
 	if hDataset == nil {
-		return nil, nil
+		return nil, fmt.Errorf("Dataset %s doesn't exist", path)
 	}
 	defer C.GDALClose(hDataset)
 

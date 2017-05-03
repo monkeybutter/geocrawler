@@ -33,12 +33,14 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+	"crypto/md5"
 )
 
 type GeoMetaData struct {
 	DataSetName    string            `json:"ds_name"`
 	NameSpace      string            `json:"namespace"`
 	TimeStamps     []time.Time       `json:"timestamps"`
+	GeoTempIDs     []string          `json:"geotemp_ids"`
 	FileNameFields map[string]string `json:"filename_fields"`
 	Polygon        string            `json:"polygon"`
 	RasterCount    int               `json:"raster_count"`
@@ -169,6 +171,12 @@ func (gt *GeoParser) Run() {
 				} else {
 					times = []time.Time{timeStamp}
 				}
+
+				ids := make([]string, len(times))
+				for i, t := range times {
+					ids[i] = getGeoTempID(polyWKT, t)
+				}
+
 				nspace, err := extractNamespace(ds.DataSetName)
 				if err != nil {
 					nspace = nameFields["namespace"]
@@ -188,6 +196,11 @@ func extractNamespace(dsName string) (string, error) {
 		return parts[len(parts)-1], nil
 	}
 	return "", fmt.Errorf("%s does not contain a namespace")
+}
+
+func getGeoTempID(geoWKT string, t time.Time) string {
+	data := []byte(fmt.Sprintf("%s@%s", geoWKT, t.Format("2006-01-02T15:04:05"))
+	return fmt.Sprintf("%x", md5.Sum(data))
 }
 
 func parseName(filePath string, parsers map[string]*regexp.Regexp) (map[string]string, time.Time) {
