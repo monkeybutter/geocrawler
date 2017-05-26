@@ -48,7 +48,7 @@ type GDALInfo struct{}
 func (b *GDALInfo) Extract(args *rpcflow.Args, res *rpcflow.GDALFile) error {
 	cPath := C.CString(args.FilePath)
 	defer C.free(unsafe.Pointer(cPath))
-	hDataset := C.GDALOpenShared(cPath, C.GA_ReadOnly)
+	hDataset := C.GDALOpen(cPath, C.GA_ReadOnly)
 	defer C.GDALClose(hDataset)
 
 	hDriver := C.GDALGetDatasetDriver(hDataset)
@@ -147,11 +147,12 @@ func getDate(inDate string) (time.Time, error) {
 func getNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 	times := []string{}
 	metadata := C.GDALGetMetadata(hSubdataset, nil)
-	if C.GoString(C.CSLFetchNameValue(metadata, CtimeUnits)) == "" {
-		return nil, nil
+	timeUnits := C.GoString(C.CSLFetchNameValue(metadata, CtimeUnits))
+	timeUnitsWords := strings.Split(timeUnits, " ")
+	if len(timeUnitsWords) != 4 && timeUnitsWords[1] != "since" {
+		return nil, fmt.Errorf("Cannot parse Units string")
 	}
 
-	timeUnits := C.GoString(C.CSLFetchNameValue(metadata, CtimeUnits))
 	timeUnitsSlice := strings.Split(timeUnits, "since")
 	stepUnit := durationUnits[strings.Trim(timeUnitsSlice[0], " ")]
 	startDate, err := getDate(strings.Trim(timeUnitsSlice[1], " "))
@@ -172,6 +173,7 @@ func getNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
 			t := startDate.Add(time.Duration(secs) * stepUnit)
 			times = append(times, t.Format("2006-01-02T15:04:05Z"))
 		}
+
 		return times, nil
 	}
 	return times, fmt.Errorf("Dataset %s doesn't contain times", sdsName)

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
+	"time"
 )
 
 func mergeGDALInfoRPCChans(cs ...chan rpcflow.GDALFile) chan rpcflow.GDALFile {
@@ -42,6 +43,7 @@ func main() {
 	flag.Parse()
 
 	if len(flag.Args()) != 1 {
+		log.Println(flag.Args())
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -69,6 +71,7 @@ func main() {
 	gi8 := proc.NewGDALInfoRPC(1241, errChan)
 	gp := proc.NewGeoParser(errChan)
 	jp := proc.NewJSONPrinter(errChan)
+	time.Sleep(5 * time.Second)
 
 	pi.In = fc.Out
 	gi1.In = pi.Out
