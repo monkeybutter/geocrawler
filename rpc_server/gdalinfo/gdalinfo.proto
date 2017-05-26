@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package gdalinfo;
+
+message Request {
+    string filePath = 1;
+}
+
+message Overview {
+    int32 xSize = 1;
+    int32 ySize = 2;
+}
+
+message Pair {
+   string key = 1;
+   string value = 2;
+}
+
+message Map {
+   repeated Pair pairs = 1;
+}
+
+message GDALDataSet {
+    string dataSetName = 1;
+    int32 rasterCount = 2;
+    string type = 3;
+    int32 xSize = 4;
+    int32 ySize = 5;
+    string projWKT = 6;
+    repeated double geoTransform = 7;
+    repeated Overview overviews = 8;
+    Map extras = 9;
+}
+
+message GDALFile {
+    string fileName = 1;
+    string driver = 2;
+    repeated GDALDataSet dataSets = 3;
+}
+
+service GDALInfo {
+    rpc Extract (Request) returns (GDALFile);
+}
