@@ -20,10 +20,10 @@ import (
 type server struct{}
 
 func (s *server) Extract(ctx context.Context, in *pb.Request) (*pb.GDALFile, error) {
-	res := &pb.GDALFile{}
+	res := &pb.GDALFile{FileName: pb.Request.FilePath}
 
 	var outb, errb bytes.Buffer
-	cmd := exec.Command("./c_warp/warp", pb.GDALFile.FilePath)
+	cmd := exec.Command("gdalinfo", pb.Request.FilePath)
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
 
@@ -33,11 +33,7 @@ func (s *server) Extract(ctx context.Context, in *pb.Request) (*pb.GDALFile, err
 		return res, err
 	}
 
-	err = proto.Unmarshal(outb.Bytes(), res)
-	if err != nil {
-		log.Println("Error deserialising proto message:", err)
-		return res, err
-	}
+	res.Output = string(outb.Bytes())
 
 	if len(errb.Bytes()) > 0 {
 		err = fmt.Errorf(string(errb.Bytes()))
