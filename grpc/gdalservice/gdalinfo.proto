@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package gdalservice;
+
+import "google/protobuf/timestamp.proto";
+
+message GeoRequest {
+    string filePath = 1;
+}
+
+message Overview {
+    int32 xSize = 1;
+    int32 ySize = 2;
+}
+
+message GeoMetaData {
+    string datasetName = 1;
+    string nameSpace = 2;
+    string type = 3;
+    int32 rasterCount = 4;
+    repeated google.protobuf.Timestamp timeStamps = 5;
+    repeated Overview overviews = 6;
+    int32 xSize = 7;
+    int32 ySize = 8;
+    repeated double geoTransform = 9;
+    string polygon = 10;
+    string projWKT = 11;
+    string proj4 = 12;
+}
+
+message GeoFile {
+    string fileName = 1;
+    string driver   = 2;
+    repeated GeoMetaData dataSets = 3;
+}
+
+message GeoFileAndError {
+    GeoFile geoFile = 1;
+    string error = 2;
+}
+
+service GDAL {
+    rpc Info (GeoRequest) returns (GeoFile);
+}

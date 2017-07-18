@@ -4,10 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	pb "../grpc/gdalservice"
 )
 
 type FileCrawler struct {
-	Out   chan string
+	In    chan string
+	Out   chan *pb.GeoRequest
 	Error chan error
 	root  string
 	re    *regexp.Regexp
@@ -15,7 +17,8 @@ type FileCrawler struct {
 
 func NewFileCrawler(rootPath string, contains *regexp.Regexp, errChan chan error) *FileCrawler {
 	return &FileCrawler{
-		Out:   make(chan string, 100),
+		In:   make(chan string, 100),
+		Out:   make(chan *pb.GeoRequest, 100),
 		Error: errChan,
 		root:  rootPath,
 		re:    contains,
@@ -34,11 +37,11 @@ func (fc *FileCrawler) Run() {
 	if fInfo.IsDir() {
 		filepath.Walk(fc.root, func(path string, info os.FileInfo, err error) error {
 			if !info.IsDir() && fc.re.MatchString(path) && filepath.Ext(path) != ".ovr" {
-				fc.Out <- path
+				fc.Out <- &pb.GeoRequest{path}
 			}
 			return nil
 		})
 	} else {
-		fc.Out <- fc.root
+		fc.Out <- &pb.GeoRequest{fc.root}
 	}
 }

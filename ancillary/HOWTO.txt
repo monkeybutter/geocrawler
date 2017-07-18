@@ -1,1 +1,0 @@
-cat /mnt/crawler_results/MODIS_JP_Crawl.tsv | ./geoingester -compact | mongoimport --db test --collection modis_jp

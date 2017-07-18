@@ -31,7 +31,7 @@ func (gi *GDALInfoRPCS3) Run() {
 
 	go func() {
 		for true {
-			cmd := exec.Command("../rpc_server/gdalinfo", "-p", fmt.Sprintf("%d", gi.Port))
+			cmd := exec.Command("../rpc_server/gdalservice", "-p", fmt.Sprintf("%d", gi.Port))
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			err := cmd.Start()

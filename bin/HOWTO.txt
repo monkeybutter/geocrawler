@@ -1,5 +1,0 @@
-execute with:
-LD_LIBRARY_PATH=/usr/local/lib ./geocrawler/bin/geoparser < gdal_crawl_rs0.tsv
-
-or compile with:
-LD_RUN_PATH=/usr/local/lib go build geoparser.go
