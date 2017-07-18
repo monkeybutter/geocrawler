@@ -1,10 +1,9 @@
 package processor
 
 import (
+	pb "../grpc/gdalservice"
 	"encoding/json"
 	"fmt"
-	pb "../grpc/gdalservice"
-	"github.com/golang/protobuf/ptypes/struct"
 )
 
 type JSONPrinter struct {

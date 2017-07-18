@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"bytes"
+	"github.com/golang/protobuf/proto"
 	"io"
 	"log"
 )
@@ -21,7 +21,7 @@ import (
 type ErrorMsg struct {
 	Address string
 	Replace bool
-	Error error
+	Error   error
 }
 
 func createUniqueFilename(dir string) (string, error) {
@@ -54,12 +54,12 @@ type InfoTask struct {
 }
 
 type Process struct {
-	Context    context.Context
-	CancelFunc context.CancelFunc
-	InfoTaskQueue  chan *InfoTask
-	InfoCmd        *exec.Cmd
-	InfoAddress    string
-	ErrorMsg   chan *ErrorMsg
+	Context       context.Context
+	CancelFunc    context.CancelFunc
+	InfoTaskQueue chan *InfoTask
+	InfoCmd       *exec.Cmd
+	InfoAddress   string
+	ErrorMsg      chan *ErrorMsg
 }
 
 func NewProcess(ctx context.Context, infoTQueue chan *InfoTask, infoBinary string, errChan chan *ErrorMsg) *Process {
@@ -72,7 +72,7 @@ func NewProcess(ctx context.Context, infoTQueue chan *InfoTask, infoBinary strin
 		os.Remove(infoAddr)
 	}
 
-	return &Process{newCtx, cancel, infoTQueue,exec.CommandContext(newCtx, infoBinary, infoAddr), infoAddr, errChan}
+	return &Process{newCtx, cancel, infoTQueue, exec.CommandContext(newCtx, infoBinary, infoAddr), infoAddr, errChan}
 }
 
 func (p *Process) waitInfoReady() error {
@@ -110,7 +110,6 @@ func (p *Process) Start() {
 		p.ErrorMsg <- &ErrorMsg{p.InfoAddress, true, err}
 		return
 	}
-
 
 	log.Printf("Process running with PID %d\n", p.InfoCmd.Process.Pid)
 
@@ -189,4 +188,3 @@ func (p *Process) Cancel() {
 	time.Sleep(100 * time.Millisecond)
 }
 */
-

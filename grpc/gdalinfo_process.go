@@ -40,8 +40,8 @@ import (
 
 	pb "./gdalservice"
 	"github.com/golang/protobuf/proto"
-	google_protobuf "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/golang/protobuf/ptypes"
+	google_protobuf "github.com/golang/protobuf/ptypes/timestamp"
 )
 
 var parserStrings map[string]string = map[string]string{"landsat": `LC(?P<mission>\d)(?P<path>\d\d\d)(?P<row>\d\d\d)(?P<year>\d\d\d\d)(?P<julian_day>\d\d\d)(?P<processing_level>[a-zA-Z0-9]+)_(?P<band>[a-zA-Z0-9]+)`,
@@ -80,16 +80,17 @@ func init() {
 
 func extractGDALInfo(in *pb.GeoRequest) (*pb.GeoFile, error) {
 
-	cPath := C.CString(in)
+	cPath := C.CString(in.FilePath)
 	defer C.free(unsafe.Pointer(cPath))
-	hDataset := C.GDALOpen(cPath, C.GA_ReadOnly)
+	hDataset := C.GDALOpenShared(cPath, C.GA_ReadOnly)
+	hMajorObj := C.GDALMajorObjectH(hDataset)
 	defer C.GDALClose(hDataset)
 
 	hDriver := C.GDALGetDatasetDriver(hDataset)
 	cShortName := C.GDALGetDriverShortName(hDriver)
 	shortName := C.GoString(cShortName)
 
-	metadata := C.GDALGetMetadata(hDataset, CsubDS)
+	metadata := C.GDALGetMetadata(hMajorObj, CsubDS)
 	nsubds := C.CSLCount(metadata) / C.int(2)
 
 	var datasets = []*pb.GeoMetaData{}
@@ -125,13 +126,15 @@ func getDataSetInfo(filename string, dsName *C.char, driverName string) (*pb.Geo
 	}
 	defer C.GDALClose(hSubdataset)
 
+	hMajorObj := C.GDALMajorObjectH(hSubdataset)
+
 	nameFields, timeStamp := parseName(filename)
 
 	var ncTimes []string
 	var err error
 	var times []*google_protobuf.Timestamp
 	if driverName == "netCDF" {
-		ncTimes, err = getNCTime(datasetName, hSubdataset)
+		ncTimes, err = getNCTime(datasetName, hMajorObj)
 	}
 
 	if err == nil && ncTimes != nil {
@@ -274,7 +277,7 @@ func getDate(inDate string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("Could not parse time string: %s", inDate)
 }
 
-func getNCTime(sdsName string, hSubdataset C.GDALDatasetH) ([]string, error) {
+func getNCTime(sdsName string, hSubdataset C.GDALMajorObjectH) ([]string, error) {
 	times := []string{}
 	metadata := C.GDALGetMetadata(hSubdataset, nil)
 	timeUnits := C.GoString(C.CSLFetchNameValue(metadata, CtimeUnits))
