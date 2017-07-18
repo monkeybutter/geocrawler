@@ -1,10 +1,10 @@
 package processor
 
 import (
+	pb "../grpc/gdalservice"
 	"os"
 	"path/filepath"
 	"regexp"
-	pb "../grpc/gdalservice"
 )
 
 type FileCrawler struct {
@@ -17,7 +17,7 @@ type FileCrawler struct {
 
 func NewFileCrawler(rootPath string, contains *regexp.Regexp, errChan chan error) *FileCrawler {
 	return &FileCrawler{
-		In:   make(chan string, 100),
+		In:    make(chan string, 100),
 		Out:   make(chan *pb.GeoRequest, 100),
 		Error: errChan,
 		root:  rootPath,
